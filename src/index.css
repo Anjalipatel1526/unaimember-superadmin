@@ -1,0 +1,93 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Google Font ─────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+/* ── Color tokens (CSS vars mirror Tailwind config) ─────────── */
+:root {
+  --brand-primary:   #4c58fa;
+  --brand-secondary: #3d45e8;
+  --brand-tint:      #EEF0FF;
+  --brand-hover:     #E8EAFD;
+  --brand-border:    #E5E7EB;
+
+  --surface-bg:      #FFFFFF;
+  --surface-sidebar: #FFFFFF;
+  --surface-card:    #FFFFFF;
+
+  --ink-heading: #111827;
+  --ink-body:    #374151;
+  --ink-muted:   #6B7280;
+}
+
+/* ── Base ────────────────────────────────────────────────────── */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background-color: #F9FAFB;
+  color: var(--ink-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Component layer ─────────────────────────────────────────── */
+@layer components {
+
+  /* Cards */
+  .card {
+    @apply bg-white rounded-2xl border border-gray-200 shadow-card p-6;
+  }
+  .card-hover {
+    @apply bg-white rounded-2xl border border-gray-200 shadow-card p-6
+           hover:shadow-card-hover hover:border-[#4c58fa]/30 transition-all duration-200 cursor-pointer;
+  }
+
+  /* Buttons */
+  .btn-primary {
+    @apply inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm
+           bg-[#4c58fa] text-white hover:bg-[#3d45e8] active:bg-[#3540d6]
+           transition-all duration-150 shadow-sm;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm
+           bg-[#EEF0FF] text-[#4c58fa] border border-[#4c58fa]/20
+           hover:bg-[#E8EAFD] transition-all duration-150;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium
+           text-gray-500 hover:bg-gray-100 hover:text-gray-900 transition-all duration-150;
+  }
+
+  /* Inputs */
+  .input {
+    @apply w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-white
+           text-gray-900 text-sm placeholder-gray-400
+           focus:outline-none focus:ring-2 focus:ring-[#4c58fa]/30 focus:border-[#4c58fa]
+           transition-all duration-150;
+  }
+
+  /* Nav items */
+  .nav-item {
+    @apply flex items-center gap-3 h-11 px-4 rounded-xl text-sm font-medium
+           text-gray-600 hover:bg-[#EEF0FF] hover:text-[#4c58fa] transition-all duration-150;
+  }
+  .nav-item-active {
+    @apply bg-[#EEF0FF] text-[#4c58fa] font-semibold;
+  }
+
+  /* Badges */
+  .badge-green  { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700; }
+  .badge-orange { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-orange-50 text-orange-700; }
+  .badge-red    { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-50 text-red-600; }
+  .badge-blue   { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700; }
+  .badge-sand   { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#EEF0FF] text-[#4c58fa]; }
+
+  /* Table rows */
+  .table-row { @apply hover:bg-gray-50 transition-colors duration-100; }
+
+  /* Section typography */
+  .section-title    { @apply text-sm font-bold text-gray-900; }
+  .section-subtitle { @apply text-xs text-gray-500 mt-0.5; }
+}
