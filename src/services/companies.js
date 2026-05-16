@@ -1,4 +1,38 @@
-import { supabase } from './supabase';
+import { supabase, supabaseAdmin } from './supabase';
+
+// ── Generate a secure random password ────────────────────────
+function generatePassword(length = 12) {
+  const upper  = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+  const lower  = 'abcdefghjkmnpqrstuvwxyz';
+  const digits = '23456789';
+  const special = '@#$!';
+  const all = upper + lower + digits + special;
+
+  // Guarantee at least one of each type
+  let pwd = [
+    upper[Math.floor(Math.random() * upper.length)],
+    lower[Math.floor(Math.random() * lower.length)],
+    digits[Math.floor(Math.random() * digits.length)],
+    special[Math.floor(Math.random() * special.length)],
+  ];
+
+  for (let i = pwd.length; i < length; i++) {
+    pwd.push(all[Math.floor(Math.random() * all.length)]);
+  }
+
+  // Shuffle
+  return pwd.sort(() => Math.random() - 0.5).join('');
+}
+
+// ── Generate login email from company name ────────────────────
+function generateLoginEmail(companyName) {
+  const slug = companyName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '')   // remove special chars
+    .substring(0, 20);
+  const rand = Math.floor(1000 + Math.random() * 9000);
+  return `${slug}${rand}@unaimember.app`;
+}
 
 // ── Fetch all companies ───────────────────────────────────────
 export async function getCompanies() {
@@ -11,10 +45,32 @@ export async function getCompanies() {
   return data ?? [];
 }
 
-// ── Create company (only safe minimal columns) ────────────────
+// ── Fetch companies with their login credentials joined ───────
+export async function getCompaniesWithCredentials() {
+  const { data, error } = await supabase
+    .from('companies')
+    .select(`
+      *,
+      company_credentials (
+        login_email,
+        login_password,
+        is_active,
+        auth_user_id
+      )
+    `)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    if (error.code === 'PGRST200' || error.message?.includes('company_credentials')) {
+      return getCompanies();
+    }
+    throw error;
+  }
+  return data ?? [];
+}
+
+// ── Create company + store login credentials ─────────────────
 export async function createCompany(payload) {
-  // Build payload with only what's guaranteed to exist.
-  // Run supabase/fix_migration.sql to add all optional columns.
   const safe = {
     name:           payload.name,
     status:         payload.status         || 'Trial',
@@ -22,7 +78,6 @@ export async function createCompany(payload) {
     employee_limit: Number(payload.employee_limit) || 50,
   };
 
-  // Optional columns — add only if the value exists (column may not yet be in schema cache)
   const optionals = {
     email:               payload.email,
     phone:               payload.phone,
@@ -34,18 +89,17 @@ export async function createCompany(payload) {
     payment_status:      payload.payment_status      || 'Pending',
   };
 
-  // Attempt insert with all optional fields
+  // 1️⃣  Insert the company record
+  let company;
   try {
     const { data, error } = await supabase
       .from('companies')
       .insert([{ ...safe, ...optionals }])
       .select()
       .single();
-
     if (error) throw error;
-    return data;
+    company = data;
   } catch (err) {
-    // If schema cache is missing columns, fall back to minimal insert
     if (err.message?.includes('schema cache') || err.code === 'PGRST204') {
       const { data, error: err2 } = await supabase
         .from('companies')
@@ -53,13 +107,101 @@ export async function createCompany(payload) {
         .select()
         .single();
       if (err2) throw err2;
-      return data;
+      company = data;
+    } else {
+      throw err;
     }
-    throw err;
   }
+
+  // 2️⃣  Use super admin's custom credentials (or auto-generate fallback)
+  const loginEmail = payload.login_id?.trim()
+    ? payload.login_id.trim()
+    : generateLoginEmail(payload.name);
+  const password = payload.login_password?.trim()
+    ? payload.login_password.trim()
+    : generatePassword(12);
+
+  // 3️⃣  Attempt to create Supabase Auth user
+  let authUserId = null;
+  if (supabaseAdmin) {
+    try {
+      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+        email: loginEmail,
+        password,
+        email_confirm: true,
+        user_metadata: { company_id: company.id, company_name: company.name, role: 'company_admin' },
+      });
+      if (authError) console.warn('[Auth]', authError.message);
+      else authUserId = authData.user?.id ?? null;
+    } catch (e) {
+      console.warn('[Auth] skipped:', e.message);
+    }
+  }
+
+  // 4️⃣  Store credentials (including password) in DB
+  try {
+    await supabase.from('company_credentials').upsert([
+      {
+        company_id:     company.id,
+        auth_user_id:   authUserId,
+        login_email:    loginEmail,
+        login_password: password,      // stored so super admin can view
+        role:           'company_admin',
+        is_active:      true,
+      }
+    ], { onConflict: 'company_id' });
+  } catch (e) {
+    console.warn('[Credentials] store failed:', e.message);
+  }
+
+  return {
+    company,
+    credentials: { email: loginEmail, password, authUserId },
+  };
 }
 
-// ── Update company ───────────────────────────────────────────
+// ── Get credentials for a company ────────────────────────────
+export async function getCompanyCredentials(companyId) {
+  const { data, error } = await supabase
+    .from('company_credentials')
+    .select('*')
+    .eq('company_id', companyId)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data;
+}
+
+// ── Reset / update password for a company login ───────────────
+export async function resetCompanyPassword(companyId, newPasswordInput) {
+  const creds = await getCompanyCredentials(companyId);
+  if (!creds) throw new Error('No credentials found for this company');
+
+  const newPassword = newPasswordInput?.trim() || generatePassword(12);
+
+  // Update Supabase Auth user if available
+  if (supabaseAdmin && creds.auth_user_id) {
+    try {
+      const { error } = await supabaseAdmin.auth.admin.updateUserById(creds.auth_user_id, {
+        password: newPassword,
+      });
+      if (error) console.warn('[Auth reset]', error.message);
+    } catch (e) {
+      console.warn('[Auth reset skipped]', e.message);
+    }
+  }
+
+  // Always update the stored password in company_credentials
+  const { error: dbErr } = await supabase
+    .from('company_credentials')
+    .update({ login_password: newPassword })
+    .eq('company_id', companyId);
+
+  if (dbErr) throw dbErr;
+  return { email: creds.login_email, password: newPassword };
+}
+
+// ── Update company ────────────────────────────────────────────
 export async function updateCompany(id, payload) {
   const { data, error } = await supabase
     .from('companies')
@@ -72,13 +214,25 @@ export async function updateCompany(id, payload) {
   return data;
 }
 
-// ── Delete company ───────────────────────────────────────────
+// ── Delete company ────────────────────────────────────────────
 export async function deleteCompany(id) {
+  // Also deactivate the auth user if possible
+  if (supabaseAdmin) {
+    try {
+      const creds = await getCompanyCredentials(id);
+      if (creds?.auth_user_id) {
+        await supabaseAdmin.auth.admin.deleteUser(creds.auth_user_id);
+      }
+    } catch (e) {
+      console.warn('[Auth] Could not delete auth user:', e.message);
+    }
+  }
+
   const { error } = await supabase.from('companies').delete().eq('id', id);
   if (error) throw error;
 }
 
-// ── Dashboard stats ──────────────────────────────────────────
+// ── Dashboard stats ───────────────────────────────────────────
 export async function getCompanyStats() {
   const { data, error } = await supabase
     .from('companies')

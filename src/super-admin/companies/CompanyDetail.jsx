@@ -9,13 +9,14 @@ import {
   getEmployees, createEmployee, updateEmployee, deleteEmployee,
   getEmployeeStats, getCompanyAccess, upsertCompanyAccess
 } from '../../services/employees';
+import ConfirmModal from '../../components/ConfirmModal';
 
 // ── Helpers ──────────────────────────────────────────────────
 function Modal({ open, onClose, title, children }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/25 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/25 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in-95 duration-200">
         <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
           <h3 className="text-base font-bold text-gray-900">{title}</h3>
           <button onClick={onClose} className="btn-ghost w-8 h-8 flex items-center justify-center p-0">
@@ -91,6 +92,8 @@ function EmployeesTab({ companyId, companyName }) {
   const [editEmp,   setEditEmp]   = useState(null);  // null=create, obj=edit
   const [form,      setForm]      = useState(BLANK_EMP);
   const [saving,    setSaving]    = useState(false);
+  const [deleteId,  setDeleteId]  = useState(null);
+  const [deleting,  setDeleting]  = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -139,14 +142,18 @@ function EmployeesTab({ companyId, companyName }) {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Delete this employee? This cannot be undone.')) return;
+  const handleDelete = async () => {
+    if (!deleteId) return;
+    setDeleting(true);
     try {
-      await deleteEmployee(id);
-      setEmployees(prev => prev.filter(e => e.id !== id));
+      await deleteEmployee(deleteId);
+      setEmployees(prev => prev.filter(e => e.id !== deleteId));
       setStats(s => s ? { ...s, total: Math.max(0, s.total - 1) } : s);
+      setDeleteId(null);
     } catch (err) {
       alert('Error: ' + err.message);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -243,7 +250,7 @@ function EmployeesTab({ companyId, companyName }) {
                           className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-[#4c58fa] hover:bg-[#EEF0FF] transition-all">
                           <Edit2 size={14} />
                         </button>
-                        <button onClick={() => handleDelete(emp.id)}
+                        <button onClick={() => setDeleteId(emp.id)}
                           className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-all">
                           <Trash2 size={14} />
                         </button>
@@ -269,26 +276,26 @@ function EmployeesTab({ companyId, companyName }) {
         <form className="flex flex-col gap-5" onSubmit={handleSave}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="First Name">
-              <input className="input" value={form.first_name} onChange={e => set('first_name', e.target.value)} required placeholder="Rahul" />
+              <input className="input" value={form.first_name} onChange={e => set('first_name', e.target.value)} required />
             </Field>
             <Field label="Last Name">
-              <input className="input" value={form.last_name} onChange={e => set('last_name', e.target.value)} required placeholder="Sharma" />
+              <input className="input" value={form.last_name} onChange={e => set('last_name', e.target.value)} required />
             </Field>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Email">
-              <input type="email" className="input" value={form.email} onChange={e => set('email', e.target.value)} placeholder="rahul@company.com" />
+              <input type="email" className="input" value={form.email} onChange={e => set('email', e.target.value)} />
             </Field>
             <Field label="Phone">
-              <input className="input" value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="+91 99999 00000" />
+              <input className="input" value={form.phone} onChange={e => set('phone', e.target.value)} />
             </Field>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Department">
-              <input className="input" value={form.department} onChange={e => set('department', e.target.value)} placeholder="Engineering" />
+              <input className="input" value={form.department} onChange={e => set('department', e.target.value)} />
             </Field>
             <Field label="Designation">
-              <input className="input" value={form.designation} onChange={e => set('designation', e.target.value)} placeholder="Software Engineer" />
+              <input className="input" value={form.designation} onChange={e => set('designation', e.target.value)} />
             </Field>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -308,10 +315,10 @@ function EmployeesTab({ companyId, companyName }) {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Salary (₹)">
-              <input type="number" className="input" value={form.salary} onChange={e => set('salary', e.target.value)} placeholder="50000" />
+              <input type="number" className="input" value={form.salary} onChange={e => set('salary', e.target.value)} />
             </Field>
             <Field label="Address">
-              <input className="input" value={form.address} onChange={e => set('address', e.target.value)} placeholder="City, State" />
+              <input className="input" value={form.address} onChange={e => set('address', e.target.value)} />
             </Field>
           </div>
           <div className="flex items-center justify-end gap-3 pt-2 border-t border-gray-100">
@@ -322,6 +329,18 @@ function EmployeesTab({ companyId, companyName }) {
           </div>
         </form>
       </Modal>
+
+      {/* Premium Confirm Modal */}
+      <ConfirmModal 
+        open={!!deleteId} 
+        onClose={() => setDeleteId(null)} 
+        onConfirm={handleDelete}
+        loading={deleting}
+        title="Delete Employee"
+        message="Are you sure you want to remove this employee from the system? This action is permanent and will delete all their records."
+        confirmText="Remove Employee"
+        type="danger"
+      />
     </div>
   );
 }
