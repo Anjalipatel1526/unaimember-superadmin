@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Search, Download, Plus, MoreHorizontal, X, Users } from 'lucide-react';
-import { getCompanies, createCompany } from '../../services/companies';
+import { useNavigate } from 'react-router-dom';
+import { Search, Download, Plus, MoreHorizontal, X, Users, Trash2, ChevronRight } from 'lucide-react';
+import { getCompanies, createCompany, deleteCompany } from '../../services/companies';
 import DatePicker from '../../components/DatePicker';
 
 function Modal({ open, onClose, title, children }) {
@@ -48,6 +49,7 @@ const BLANK = {
 };
 
 export default function Companies() {
+  const navigate = useNavigate();
   const [companies, setCompanies] = useState([]);
   const [loading,   setLoading]   = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -69,6 +71,16 @@ export default function Companies() {
   );
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this company? All associated data will be removed.')) return;
+    try {
+      await deleteCompany(id);
+      setCompanies(prev => prev.filter(c => c.id !== id));
+    } catch (e) {
+      alert('Error deleting company: ' + e.message);
+    }
+  };
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -98,7 +110,6 @@ export default function Companies() {
         </div>
       </div>
 
-      {error && <div className="bg-red-50 border border-red-200 rounded-2xl px-5 py-3 text-sm text-red-700">⚠ {error}</div>}
 
       <div className="card p-0 overflow-hidden">
         <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100">
@@ -122,7 +133,8 @@ export default function Companies() {
               </thead>
               <tbody>
                 {filtered.map(c=>(
-                  <tr key={c.id} className="table-row border-b border-gray-100 last:border-0">
+                  <tr key={c.id} className="table-row border-b border-gray-100 last:border-0 cursor-pointer"
+                    onClick={() => navigate(`/companies/${c.id}`)}>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-xl bg-[#EEF0FF] flex items-center justify-center shrink-0">
@@ -150,9 +162,19 @@ export default function Companies() {
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-400 whitespace-nowrap">{new Date(c.created_at).toLocaleDateString()}</td>
                     <td className="px-6 py-4">
-                      <button className="btn-ghost w-8 h-8 flex items-center justify-center p-0 text-gray-400">
-                        <MoreHorizontal size={16}/>
-                      </button>
+                      <div className="flex items-center gap-2 justify-end" onClick={e => e.stopPropagation()}>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); handleDelete(c.id); }}
+                          className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-all"
+                          title="Delete Company"
+                        >
+                          <Trash2 size={16}/>
+                        </button>
+                        <button onClick={() => navigate(`/companies/${c.id}`)}
+                          className="btn-ghost w-8 h-8 flex items-center justify-center p-0 text-gray-400">
+                          <ChevronRight size={16}/>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
