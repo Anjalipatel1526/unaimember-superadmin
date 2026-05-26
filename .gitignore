@@ -10,6 +10,7 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+dist-electron
 *.local
 
 # Environment variables — never commit credentials
@@ -17,6 +18,18 @@ dist-ssr
 .env.local
 .env.*.local
 
+# Electron Builder output — large binary artifacts, never commit
+release/
+out/
+
+# Electron build artifact types
+*.AppImage
+*.deb
+*.rpm
+*.exe
+*.dmg
+*.snap
+*.tar.gz
 
 # Editor directories and files
 .vscode/*
