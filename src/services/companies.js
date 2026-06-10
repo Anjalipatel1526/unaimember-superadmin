@@ -82,6 +82,7 @@ export async function createCompany(payload) {
     email:               payload.email,
     phone:               payload.phone,
     address:             payload.address,
+    logo_url:            payload.logo_url            || null,
     trial_expiry:        payload.trial_expiry        || null,
     plan_id:             payload.plan_id             || null,
     payroll_enabled:     payload.payroll_enabled     ?? false,
@@ -236,13 +237,60 @@ export async function deleteCompany(id) {
 export async function getCompanyStats() {
   const { data, error } = await supabase
     .from('companies')
-    .select('status, employee_count');
+    .select('status, employee_count, address');
 
   if (error) throw error;
+
+  let india = 0;
+  let us = 0;
+  let europe = 0;
+  let other = 0;
+
+  (data ?? []).forEach(c => {
+    const addr = (c.address || '').toLowerCase();
+    if (
+      addr.includes('india') ||
+      addr.includes('mumbai') ||
+      addr.includes('delhi') ||
+      addr.includes('bangalore') ||
+      addr.includes('chennai') ||
+      addr.includes('pune') ||
+      addr.includes('hyderabad') ||
+      addr.includes('kolkata')
+    ) {
+      india++;
+    } else if (
+      addr.includes('us') ||
+      addr.includes('usa') ||
+      addr.includes('united states') ||
+      addr.includes('california') ||
+      addr.includes('seattle') ||
+      addr.includes('new york') ||
+      addr.includes('san francisco') ||
+      addr.includes('texas')
+    ) {
+      us++;
+    } else if (
+      addr.includes('europe') ||
+      addr.includes('uk') ||
+      addr.includes('london') ||
+      addr.includes('germany') ||
+      addr.includes('france') ||
+      addr.includes('paris') ||
+      addr.includes('berlin') ||
+      addr.includes('italy') ||
+      addr.includes('spain')
+    ) {
+      europe++;
+    } else {
+      other++;
+    }
+  });
 
   return {
     total:          data.length,
     totalEmployees: data.reduce((s, c) => s + (c.employee_count || 0), 0),
     trials:         data.filter(c => c.status === 'Trial').length,
+    regions: { india, us, europe, other }
   };
 }

@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Download, Plus, X, Users, Trash2, ChevronRight, KeyRound, Copy, Check, Eye, EyeOff, RefreshCw } from 'lucide-react';
+import { Search, Download, Plus, X, Users, Trash2, ChevronRight, KeyRound, Copy, Check, Eye, EyeOff, RefreshCw, Building2 } from 'lucide-react';
 import { getCompaniesWithCredentials, createCompany, deleteCompany, resetCompanyPassword } from '../../services/companies';
 
 import ConfirmModal from '../../components/ConfirmModal';
@@ -49,6 +49,7 @@ const BLANK = {
   employee_limit: 50,
   payroll_enabled: false, performance_enabled: false,
   login_id: '', login_password: '',
+  logo_url: '',
 };
 
 export default function Companies() {
@@ -103,6 +104,22 @@ export default function Companies() {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789@#$!';
     const pwd = Array.from({ length: 12 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
     set('login_password', pwd);
+  };
+
+  const handleLogoChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Please upload an image smaller than 5MB.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      set('logo_url', reader.result);
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleDelete = async () => {
@@ -205,8 +222,12 @@ export default function Companies() {
                       {/* Company */}
                       <td className="px-5 py-3.5 cursor-pointer" onClick={() => navigate(`/companies/${c.id}`)}>
                         <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-xl bg-[#EEF0FF] flex items-center justify-center shrink-0">
-                            <span className="text-sm font-bold text-[#4c58fa]">{(c.name||'?')[0]}</span>
+                          <div className="w-9 h-9 rounded-xl bg-[#EEF0FF] flex items-center justify-center shrink-0 overflow-hidden">
+                            {c.logo_url ? (
+                              <img src={c.logo_url} alt={c.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <span className="text-sm font-bold text-[#4c58fa]">{(c.name||'?')[0]}</span>
+                            )}
                           </div>
                           <div>
                             <p className="text-sm font-semibold text-gray-900">{c.name}</p>
@@ -340,6 +361,48 @@ export default function Companies() {
             <input className="input" value={form.address} onChange={e=>set('address',e.target.value)} />
           </Field>
 
+          {/* Company Logo Section */}
+          <div className="flex flex-col sm:flex-row items-center gap-6 p-4 rounded-xl bg-gray-50/50 border border-gray-100/80">
+            <div className="relative group shrink-0">
+              <div className="w-16 h-16 rounded-xl bg-[#EEF0FF] flex items-center justify-center overflow-hidden border border-gray-200">
+                {form.logo_url ? (
+                  <img src={form.logo_url} alt="Company Logo" className="w-full h-full object-cover" />
+                ) : (
+                  <Building2 className="text-[#4c58fa]" size={28} />
+                )}
+              </div>
+            </div>
+            <div className="flex-1 space-y-2 w-full">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-bold text-gray-900 uppercase tracking-wide">Company Logo</p>
+                <span className="text-[10px] text-gray-400">under 5MB</span>
+              </div>
+              
+              <div className="flex flex-col sm:flex-row gap-2">
+                <label className="btn-secondary text-xs px-3 py-1.5 cursor-pointer text-center whitespace-nowrap">
+                  Choose File
+                  <input type="file" accept="image/*" className="hidden" onChange={handleLogoChange} />
+                </label>
+                <input 
+                  type="text" 
+                  className="input text-xs font-mono h-8 py-1 flex-1" 
+                  value={form.logo_url} 
+                  onChange={e => set('logo_url', e.target.value)} 
+                  placeholder="Or paste logo image URL..."
+                />
+                {form.logo_url && (
+                  <button 
+                    type="button" 
+                    onClick={() => set('logo_url', '')} 
+                    className="btn-ghost text-xs text-rose-600 hover:bg-rose-50 h-8 px-2"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
           {/* ── Login Credentials ── */}
           <div className="flex flex-col gap-3 pt-2 border-t border-gray-100">
             <p className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
@@ -348,9 +411,12 @@ export default function Companies() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Field label="Login ID (Email)">
                 <input
+                  type="email"
                   className="input font-mono"
                   value={form.login_id}
                   onChange={e => set('login_id', e.target.value)}
+                  required
+                  placeholder="admin@company.com"
                 />
               </Field>
               <Field label="Password">
@@ -360,6 +426,8 @@ export default function Companies() {
                     className="input font-mono pr-20"
                     value={form.login_password}
                     onChange={e => set('login_password', e.target.value)}
+                    required
+                    placeholder="••••••••••••"
                   />
                   <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
                     <button type="button" onClick={() => setShowFormPwd(s => !s)}
@@ -374,7 +442,7 @@ export default function Companies() {
                 </div>
               </Field>
             </div>
-            <p className="text-xs text-gray-400">Leave blank to auto-generate. The credentials will be saved and visible in the companies table.</p>
+            <p className="text-xs text-gray-400">Specify the login ID (email) and password that this company will use to log in to their dashboard.</p>
           </div>
 
           <div className="flex flex-col gap-3 pt-2 border-t border-gray-100">

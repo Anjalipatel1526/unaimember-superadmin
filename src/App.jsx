@@ -1,10 +1,10 @@
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import MainLayout from './layouts/MainLayout';
+import CompanyPortal from './company/CompanyPortal';
 import Dashboard    from './super-admin/dashboard/Dashboard';
 import Companies    from './super-admin/companies/Companies';
 import CompanyDetail from './super-admin/companies/CompanyDetail';
-import Calendar     from './super-admin/calendar/Calendar';
 import Billing      from './super-admin/billing/Billing';
 import Support      from './super-admin/support/Support';
 import Features     from './super-admin/features/Features';
@@ -12,6 +12,8 @@ import Monitoring   from './super-admin/monitoring/Monitoring';
 import Permissions  from './super-admin/permissions/Permissions';
 import AuditLogs    from './super-admin/logs/AuditLogs';
 import Settings     from './super-admin/settings/Settings';
+
+import HRPortal      from './hr/HRPortal';
 
 /* ── Analytics ─────────────────────────────────────────────── */
 function Analytics() {
@@ -63,7 +65,6 @@ export default function App() {
         <Route index                 element={<Dashboard />}    />
         <Route path="companies"         element={<Companies />}      />
         <Route path="companies/:id"      element={<CompanyDetail />}  />
-        <Route path="calendar"       element={<Calendar />}     />
         <Route path="/billing"       element={<Billing />}      />
         <Route path="/analytics"     element={<Analytics />}    />
         <Route path="/support"       element={<Support />}      />
@@ -74,6 +75,9 @@ export default function App() {
         <Route path="/logs"          element={<AuditLogs />}    />
         <Route path="/settings"      element={<Settings />}     />
       </Route>
+
+      <Route path="/admin" element={<CompanyPortal />} />
+      <Route path="/hr" element={<HRPortal />} />
 
       <Route path="*" element={<div className="p-20 text-center text-gray-500 font-bold">404 - NOT FOUND</div>} />
     </Routes>

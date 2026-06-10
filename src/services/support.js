@@ -69,3 +69,34 @@ export function subscribeToMessages(ticketId, callback) {
     )
     .subscribe();
 }
+
+// ── Get tickets for a specific company ────────────────────────
+export async function getCompanyTickets(companyId) {
+  const { data, error } = await supabase
+    .from('support_tickets')
+    .select('*')
+    .eq('company_id', companyId)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return data;
+}
+
+// ── Create support ticket for a company ────────────────────────
+export async function createSupportTicket(companyId, { subject, priority }) {
+  const ticketNumber = `TKT-${Math.floor(100000 + Math.random() * 900000)}`;
+  const { data, error } = await supabase
+    .from('support_tickets')
+    .insert([{
+      company_id: companyId,
+      ticket_number: ticketNumber,
+      subject,
+      priority: priority || 'Medium',
+      status: 'Open',
+    }])
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}

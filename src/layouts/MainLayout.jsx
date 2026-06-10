@@ -21,7 +21,6 @@ const saveAdminName= (n) => localStorage.setItem(ADMIN_KEY, n);
 const NAV_ITEMS = [
   { icon: LayoutDashboard, label: 'Dashboard',          to: '/' },
   { icon: Building2,       label: 'Client Companies',   to: '/companies' },
-  { icon: CalendarDays,    label: 'Calendar',           to: '/calendar' },
   { icon: BarChart3,       label: 'Revenue & Billing',  to: '/billing' },
   { icon: Users,           label: 'Employee Analytics', to: '/analytics' },
   { icon: Ticket,          label: 'Support Tickets',    to: '/support' },

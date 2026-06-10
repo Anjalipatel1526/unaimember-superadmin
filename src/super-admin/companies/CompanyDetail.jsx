@@ -487,8 +487,12 @@ export default function CompanyDetail() {
           <ArrowLeft size={18} />
         </button>
         <div className="flex items-center gap-3 flex-1">
-          <div className="w-11 h-11 rounded-xl bg-[#EEF0FF] flex items-center justify-center shrink-0">
-            <span className="text-lg font-bold text-[#4c58fa]">{(company.name || '?')[0]}</span>
+          <div className="w-11 h-11 rounded-xl bg-[#EEF0FF] flex items-center justify-center shrink-0 overflow-hidden">
+            {company.logo_url ? (
+              <img src={company.logo_url} alt={company.name} className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-lg font-bold text-[#4c58fa]">{(company.name || '?')[0]}</span>
+            )}
           </div>
           <div>
             <div className="flex items-center gap-2">

@@ -39,7 +39,7 @@ const DATA = [
 ];
 
 export default function Dashboard() {
-  const [stats, setStats] = useState({ total: 0, employees: 0, revenue: 0, mrr: 0 });
+  const [stats, setStats] = useState({ total: 0, employees: 0, revenue: 0, mrr: 0, regions: { india: 0, us: 0, europe: 0, other: 0 } });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -50,7 +50,8 @@ export default function Dashboard() {
           total: c.total,
           employees: c.totalEmployees,
           revenue: b.totalRevenue,
-          mrr: b.mrr
+          mrr: b.mrr,
+          regions: c.regions || { india: 0, us: 0, europe: 0, other: 0 }
         });
       } finally { setLoading(false); }
     }
@@ -137,21 +138,34 @@ export default function Dashboard() {
           <div className="glass-card p-6 rounded-3xl flex-1 flex flex-col justify-center">
             <h4 className="text-sm font-bold text-gray-900 mb-6">Regional Distribution</h4>
             <div className="space-y-4">
-              {[
-                { label: 'India Cluster', val: 65, color: 'bg-emerald-500' },
-                { label: 'US West Cluster', val: 20, color: 'bg-blue-500' },
-                { label: 'Europe Cluster', val: 15, color: 'bg-purple-500' },
-              ].map(r => (
-                <div key={r.label}>
-                  <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">
-                    <span>{r.label}</span>
-                    <span>{r.val}%</span>
+              {(() => {
+                const total = stats.total || 0;
+                const indiaVal = total > 0 ? Math.round((stats.regions?.india || 0) / total * 100) : 0;
+                const usVal = total > 0 ? Math.round((stats.regions?.us || 0) / total * 100) : 0;
+                const europeVal = total > 0 ? Math.round((stats.regions?.europe || 0) / total * 100) : 0;
+                const otherVal = total > 0 ? Math.round((stats.regions?.other || 0) / total * 100) : 0;
+
+                const regionsData = [
+                  { label: 'India Cluster', val: indiaVal, color: 'bg-emerald-500' },
+                  { label: 'US West Cluster', val: usVal, color: 'bg-blue-500' },
+                  { label: 'Europe Cluster', val: europeVal, color: 'bg-purple-500' },
+                ];
+                if (otherVal > 0) {
+                  regionsData.push({ label: 'Other Regions', val: otherVal, color: 'bg-gray-400' });
+                }
+
+                return regionsData.map(r => (
+                  <div key={r.label}>
+                    <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">
+                      <span>{r.label}</span>
+                      <span>{r.val}%</span>
+                    </div>
+                    <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
+                      <div className={`h-full ${r.color} transition-all duration-1000`} style={{width: `${r.val}%`}} />
+                    </div>
                   </div>
-                  <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
-                    <div className={`h-full ${r.color} transition-all duration-1000`} style={{width: `${r.val}%`}} />
-                  </div>
-                </div>
-              ))}
+                ));
+              })()}
             </div>
           </div>
         </div>

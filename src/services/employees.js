@@ -79,7 +79,7 @@ export async function deleteEmployee(id) {
 export async function getEmployeeStats(companyId) {
   const { data, error } = await supabase
     .from('employees')
-    .select('emp_status, employment_type, department')
+    .select('emp_status, employment_type, department, salary, date_of_joining')
     .eq('company_id', companyId);
 
   if (error) throw error;
@@ -91,7 +91,49 @@ export async function getEmployeeStats(companyId) {
 
   const departments = [...new Set(data.map(e => e.department).filter(Boolean))];
 
-  return { total, active, inactive, onLeave, departments };
+  // Employment type breakdown
+  const employmentTypes = {};
+  data.forEach(e => {
+    const t = e.employment_type || 'Unknown';
+    employmentTypes[t] = (employmentTypes[t] || 0) + 1;
+  });
+
+  // Department-wise salary breakdown (monthly payroll cost)
+  const departmentSalary = {};
+  const departmentCount = {};
+  data.forEach(e => {
+    const dept = e.department || 'General';
+    departmentSalary[dept] = (departmentSalary[dept] || 0) + (e.salary || 0);
+    departmentCount[dept] = (departmentCount[dept] || 0) + 1;
+  });
+
+  // Total monthly payroll
+  const totalPayroll = data.reduce((sum, e) => sum + (e.salary || 0), 0);
+
+  // Monthly joining trend (last 6 months)
+  const now = new Date();
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const joiningTrend = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const month = d.getMonth();
+    const year = d.getFullYear();
+    const count = data.filter(e => {
+      if (!e.date_of_joining) return false;
+      const jd = new Date(e.date_of_joining);
+      return jd.getMonth() === month && jd.getFullYear() === year;
+    }).length;
+    joiningTrend.push({ name: monthNames[month], count });
+  }
+
+  // Status breakdown for pie chart
+  const statusBreakdown = { active, inactive, onLeave };
+
+  return {
+    total, active, inactive, onLeave, departments,
+    employmentTypes, departmentSalary, departmentCount,
+    totalPayroll, joiningTrend, statusBreakdown
+  };
 }
 
 // ── Get / Upsert company access controls ─────────────────────
