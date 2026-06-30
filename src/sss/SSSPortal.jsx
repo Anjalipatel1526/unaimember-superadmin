@@ -1361,7 +1361,7 @@ export default function SSSPortal() {
                   <div className="w-64 shrink-0 bg-gray-50 border-r border-gray-100 flex flex-col p-5 gap-3">
 
                     {/* BOX 1 — Photo only (separate box) */}
-                    <div className="w-full bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden relative" style={{ height: 170 }}>
+                    <div className="w-full bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden relative" style={{ height: 240 }}>
                       {/* ACTIVE badge */}
                       <span className={`absolute top-2.5 right-2.5 z-10 text-[9px] font-bold px-2 py-0.5 rounded-full tracking-wide ${
                         selectedEmpCard.is_active ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-100 text-gray-400'
