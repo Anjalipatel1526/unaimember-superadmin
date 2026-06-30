@@ -136,12 +136,28 @@ export default function SSSEmployeeDashboard() {
       if (lErr) throw lErr;
       setLeaveRequests(lData || []);
 
+      // Resolve user_id mapping
+      let empUserId = null;
+      const empRecord = employees.find(e => e.id === employeeId);
+      if (empRecord) {
+        empUserId = empRecord.user_id;
+      } else {
+        const { data: dbEmp } = await supabase
+          .from('employees')
+          .select('user_id')
+          .eq('id', employeeId)
+          .maybeSingle();
+        if (dbEmp) empUserId = dbEmp.user_id;
+      }
+
+      const userFilter = empUserId ? `user_id.eq.${empUserId},user_id.is.null` : 'user_id.is.null';
+
       // Fetch notifications
       const { data: notifData, error: notifErr } = await supabase
         .from('notifications')
         .select('*')
         .eq('company_id', companyId)
-        .or(`user_id.eq.${employeeId},user_id.is.null`)
+        .or(userFilter)
         .order('created_at', { ascending: false });
 
       if (notifErr) throw notifErr;
@@ -184,11 +200,13 @@ export default function SSSEmployeeDashboard() {
   const handleMarkAllRead = async () => {
     if (!selectedEmployee || !company) return;
     try {
+      const empUserId = selectedEmployee.user_id;
+      const userFilter = empUserId ? `user_id.eq.${empUserId},user_id.is.null` : 'user_id.is.null';
       const { error } = await supabase
         .from('notifications')
         .update({ is_read: true })
         .eq('company_id', company.id)
-        .or(`user_id.eq.${selectedEmployee.id},user_id.is.null`);
+        .or(userFilter);
       if (error) throw error;
       setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
     } catch (err) {

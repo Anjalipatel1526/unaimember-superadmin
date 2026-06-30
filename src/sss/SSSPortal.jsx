@@ -324,18 +324,40 @@ export default function SSSPortal() {
         return;
       }
 
-      const rows = targetEmployees.map(emp => ({
-        company_id: company.id,
-        user_id: emp.id,
-        type: 'announcement',
-        title: newNotifTitle.trim(),
-        body: newNotifBody.trim(),
-        is_read: false,
-        priority: newNotifPriority,
-        attachment_url: newNotifAttachmentUrl.trim() || null,
-        attachment_name: newNotifAttachmentName.trim() || null,
-        created_at: new Date().toISOString()
-      }));
+      let rows = [];
+      if (newNotifRecipientType === 'all') {
+        rows = [{
+          company_id: company.id,
+          user_id: null,
+          type: 'announcement',
+          title: newNotifTitle.trim(),
+          body: newNotifBody.trim(),
+          is_read: false,
+          priority: newNotifPriority,
+          attachment_url: newNotifAttachmentUrl.trim() || null,
+          attachment_name: newNotifAttachmentName.trim() || null,
+          created_at: new Date().toISOString()
+        }];
+      } else {
+        const activeRecipients = targetEmployees.filter(emp => emp.user_id);
+        if (activeRecipients.length === 0) {
+          alert('None of the targeted employees have a linked user account to receive individual notifications.');
+          setSendingNotif(false);
+          return;
+        }
+        rows = activeRecipients.map(emp => ({
+          company_id: company.id,
+          user_id: emp.user_id,
+          type: 'announcement',
+          title: newNotifTitle.trim(),
+          body: newNotifBody.trim(),
+          is_read: false,
+          priority: newNotifPriority,
+          attachment_url: newNotifAttachmentUrl.trim() || null,
+          attachment_name: newNotifAttachmentName.trim() || null,
+          created_at: new Date().toISOString()
+        }));
+      }
 
       let { error } = await supabase
         .from('notifications')
