@@ -1358,18 +1358,18 @@ export default function SSSPortal() {
                   </button>
 
                   {/* ── LEFT PANEL ── */}
-                  <div className="w-64 shrink-0 bg-gray-50 border-r border-gray-100 flex flex-col p-5 gap-4">
-                    {/* Avatar card — photo fills the top box */}
-                    <div className="w-full bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden relative">
+                  <div className="w-64 shrink-0 bg-gray-50 border-r border-gray-100 flex flex-col p-5 gap-3">
+
+                    {/* BOX 1 — Photo only (separate box) */}
+                    <div className="w-full bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden relative" style={{ height: 170 }}>
                       {/* ACTIVE badge */}
-                      <span className={`absolute top-3 right-3 z-10 text-[9px] font-bold px-2 py-0.5 rounded-full tracking-wide ${
+                      <span className={`absolute top-2.5 right-2.5 z-10 text-[9px] font-bold px-2 py-0.5 rounded-full tracking-wide ${
                         selectedEmpCard.is_active ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-100 text-gray-400'
                       }`}>
                         {selectedEmpCard.is_active ? 'ACTIVE' : 'INACTIVE'}
                       </span>
-
-                      {/* Photo — fills top of the card */}
-                      <label className="cursor-pointer group block relative w-full" style={{ height: 170 }}>
+                      {/* Photo upload label fills entire box */}
+                      <label className="cursor-pointer group block w-full h-full relative">
                         <input type="file" accept="image/*" className="hidden" onChange={e => {
                           const file = e.target.files?.[0];
                           if (file) {
@@ -1381,10 +1381,11 @@ export default function SSSPortal() {
                         {selectedEmpCard._photoPreview ? (
                           <img src={selectedEmpCard._photoPreview} alt="Employee" className="w-full h-full object-cover" />
                         ) : (
-                          <div className="w-full h-full bg-gradient-to-br from-indigo-100 via-indigo-200 to-indigo-300 flex flex-col items-center justify-center gap-2">
+                          <div className="w-full h-full bg-gradient-to-br from-indigo-100 via-indigo-200 to-indigo-300 flex flex-col items-center justify-center gap-1">
                             <span className="text-indigo-700 font-black text-5xl select-none" style={{ fontFamily: "'Inter', sans-serif" }}>
                               {selectedEmpCard.first_name?.[0]?.toUpperCase()}{selectedEmpCard.last_name?.[0]?.toUpperCase()}
                             </span>
+                            <p className="text-indigo-400 text-[9px] font-semibold">Click to upload photo</p>
                           </div>
                         )}
                         {/* Upload hover overlay */}
@@ -1396,24 +1397,27 @@ export default function SSSPortal() {
                           <p className="text-white text-[10px] font-semibold">Upload Photo</p>
                         </div>
                       </label>
+                    </div>
 
-                      {/* Bottom info row inside the card: Name+Designation LEFT · ID+Dept RIGHT */}
-                      <div className="flex items-start justify-between gap-2 px-4 py-3">
-                        {/* Left: name + designation */}
-                        <div className="min-w-0">
-                          <p className="text-gray-900 font-bold text-sm leading-tight truncate" style={{ fontFamily: "'Inter', sans-serif" }}>
-                            {selectedEmpCard.first_name} {selectedEmpCard.last_name}
-                          </p>
-                          <p className="text-[10px] font-bold mt-0.5 uppercase tracking-wider truncate" style={{ color: '#4F6AF7', fontFamily: "'Inter', sans-serif" }}>
-                            {selectedEmpCard.designation || 'Employee'}
-                          </p>
+                    {/* BOX 2 — Details (name, profession, ID, department) — separate box below photo */}
+                    <div className="w-full bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-4 flex flex-col gap-2.5">
+                      {/* Name */}
+                      <div>
+                        <p className="text-gray-900 font-bold text-sm leading-tight" style={{ fontFamily: "'Inter', sans-serif" }}>
+                          {selectedEmpCard.first_name} {selectedEmpCard.last_name}
+                        </p>
+                        <p className="text-[10px] font-bold mt-0.5 uppercase tracking-wider" style={{ color: '#4F6AF7', fontFamily: "'Inter', sans-serif" }}>
+                          {selectedEmpCard.designation || 'Employee'}
+                        </p>
+                      </div>
+                      <div className="border-t border-gray-100 pt-2.5 grid grid-cols-2 gap-x-3 gap-y-2">
+                        <div>
+                          <p className="text-[8px] text-gray-400 font-semibold uppercase tracking-widest leading-none">Employee ID</p>
+                          <p className="text-[11px] font-bold text-gray-700 font-mono mt-0.5">{selectedEmpCard.id.slice(0, 8).toUpperCase()}</p>
                         </div>
-                        {/* Right: ID + Department */}
-                        <div className="shrink-0 text-right">
-                          <p className="text-[8px] text-gray-400 font-semibold uppercase tracking-widest leading-none">ID</p>
-                          <p className="text-[10px] font-bold text-gray-700 font-mono mt-0.5">{selectedEmpCard.id.slice(0, 8).toUpperCase()}</p>
-                          <p className="text-[8px] text-gray-400 font-semibold uppercase tracking-widest leading-none mt-1.5">Dept</p>
-                          <p className="text-[10px] font-semibold text-gray-600 mt-0.5 max-w-[80px] text-right leading-tight">{getDeptName(selectedEmpCard.department_id)}</p>
+                        <div>
+                          <p className="text-[8px] text-gray-400 font-semibold uppercase tracking-widest leading-none">Department</p>
+                          <p className="text-[11px] font-semibold text-gray-700 mt-0.5 leading-tight">{getDeptName(selectedEmpCard.department_id)}</p>
                         </div>
                       </div>
                     </div>
