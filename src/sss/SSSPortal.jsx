@@ -42,7 +42,6 @@ export default function SSSPortal() {
   const [newNotifPriority, setNewNotifPriority] = useState('Medium');
   const [newNotifAttachmentUrl, setNewNotifAttachmentUrl] = useState('');
   const [newNotifAttachmentName, setNewNotifAttachmentName] = useState('');
-  const [newNotifScheduledFor, setNewNotifScheduledFor] = useState('');
   const [sendingNotif, setSendingNotif] = useState(false);
 
   // Filters
@@ -335,22 +334,37 @@ export default function SSSPortal() {
         priority: newNotifPriority,
         attachment_url: newNotifAttachmentUrl.trim() || null,
         attachment_name: newNotifAttachmentName.trim() || null,
-        scheduled_for: newNotifScheduledFor || null,
         created_at: new Date().toISOString()
       }));
 
-      const { error } = await supabase
+      let { error } = await supabase
         .from('notifications')
         .insert(rows);
 
-      if (error) throw error;
+      if (error && error.code === '42703') {
+        console.warn('Extended columns do not exist. Omit and retry.');
+        const fallbackRows = rows.map(r => ({
+          company_id: r.company_id,
+          user_id: r.user_id,
+          type: r.type,
+          title: r.title,
+          body: r.body,
+          is_read: r.is_read,
+          created_at: r.created_at
+        }));
+        const { error: fallbackError } = await supabase
+          .from('notifications')
+          .insert(fallbackRows);
+        if (fallbackError) throw fallbackError;
+      } else if (error) {
+        throw error;
+      }
 
       setNewNotifTitle('');
       setNewNotifBody('');
       setNewNotifTargetTeam('');
       setNewNotifAttachmentUrl('');
       setNewNotifAttachmentName('');
-      setNewNotifScheduledFor('');
       alert('Notification successfully created & synced!');
       fetchData();
     } catch (err) {
@@ -2527,26 +2541,15 @@ export default function SSSPortal() {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="flex flex-col gap-1.5">
-                          <label className="text-[10px] font-bold text-gray-400 uppercase">Schedule for later (Optional)</label>
-                          <input 
-                            type="datetime-local"
-                            value={newNotifScheduledFor}
-                            onChange={e => setNewNotifScheduledFor(e.target.value)}
-                            className="h-10 px-3 border border-gray-250/75 rounded-xl bg-white outline-none focus:border-[#4F6AF7]"
-                          />
-                        </div>
-                        <div className="flex items-end">
-                          <button
-                            type="submit"
-                            disabled={sendingNotif}
-                            className="w-full h-10 bg-[#4F6AF7] hover:bg-[#3d58e5] text-white font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
-                          >
-                            {sendingNotif ? 'Publishing...' : newNotifScheduledFor ? 'Schedule Notification' : 'Send Notification'}
-                            <ArrowRight size={14} />
-                          </button>
-                        </div>
+                      <div className="pt-2">
+                        <button
+                          type="submit"
+                          disabled={sendingNotif}
+                          className="w-full h-10 bg-[#4F6AF7] hover:bg-[#3d58e5] text-white font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
+                        >
+                          {sendingNotif ? 'Publishing...' : 'Send Notification'}
+                          <ArrowRight size={14} />
+                        </button>
                       </div>
                     </form>
                   </div>
