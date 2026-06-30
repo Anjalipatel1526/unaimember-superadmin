@@ -43,6 +43,7 @@ export default function SSSPortal() {
   const [newNotifAttachmentUrl, setNewNotifAttachmentUrl] = useState('');
   const [newNotifAttachmentName, setNewNotifAttachmentName] = useState('');
   const [sendingNotif, setSendingNotif] = useState(false);
+  const [selectedEmpCard, setSelectedEmpCard] = useState(null);
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -981,7 +982,7 @@ export default function SSSPortal() {
         <nav className="flex-1 px-3 py-5 space-y-0.5">
           {[
             { name: 'Dashboard', icon: LayoutDashboard },
-            { name: 'HR Management', icon: Users },
+            { name: 'Our Employees', icon: Users },
             { name: 'Managers', icon: Briefcase },
             { name: 'Team Leads', icon: Award },
             { name: 'Attendance', icon: Clock },
@@ -1194,13 +1195,13 @@ export default function SSSPortal() {
             </div>
           )}
 
-          {/* ───────────────── VIEW 2: HR MANAGEMENT ────────────── */}
-          {activeTab === 'HR Management' && (
+          {/* ───────────────── VIEW 2: OUR EMPLOYEES ────────────── */}
+          {activeTab === 'Our Employees' && (
             <div className="card p-6 space-y-6 flex flex-col bg-white border border-gray-100 rounded-2xl shadow-sm">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <h2 className="text-lg font-bold text-gray-900">Employee Registry</h2>
-                  <p className="text-xs text-gray-400 mt-1">Manage and view all Story Seed workforce profiles.</p>
+                  <h2 className="text-lg font-bold text-gray-900">Our Employees</h2>
+                  <p className="text-xs text-gray-400 mt-1">Click on any employee to view their full profile card.</p>
                 </div>
                 <div className="flex items-center gap-3">
                   <button onClick={() => handleOpenAddModal('employee')} className="text-xs h-10 px-4 flex items-center gap-1.5 font-semibold bg-[#4F6AF7] hover:bg-[#3d58e5] text-white rounded-xl shadow-md shadow-[#4F6AF7]/20 transition-all">
@@ -1273,14 +1274,14 @@ export default function SSSPortal() {
                     </thead>
                     <tbody className="divide-y divide-gray-100/50 text-sm">
                       {filteredEmployees.map(emp => (
-                        <tr key={emp.id} className="hover:bg-gray-50/30 transition-colors">
-                          <td className="py-4 px-6">
+                        <tr key={emp.id} className="hover:bg-indigo-50/20 transition-colors cursor-pointer group">
+                          <td className="py-4 px-6" onClick={() => setSelectedEmpCard(emp)}>
                             <div className="flex items-center gap-3">
-                              <div className="w-9 h-9 rounded-full bg-emerald-50 text-emerald-700 font-extrabold flex items-center justify-center shrink-0">
+                              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-400 to-[#4F6AF7] text-white font-extrabold flex items-center justify-center shrink-0 shadow-sm">
                                 {emp.first_name?.[0]?.toUpperCase()}{emp.last_name?.[0]?.toUpperCase()}
                               </div>
                               <div>
-                                <p className="font-semibold text-gray-900 leading-tight">
+                                <p className="font-semibold text-[#4F6AF7] leading-tight group-hover:underline underline-offset-2">
                                   {emp.first_name} {emp.last_name}
                                 </p>
                                 <p className="text-[9px] text-gray-400 mt-1 font-mono">
@@ -1289,22 +1290,22 @@ export default function SSSPortal() {
                               </div>
                             </div>
                           </td>
-                          <td className="py-4 px-6">
+                          <td className="py-4 px-6" onClick={() => setSelectedEmpCard(emp)}>
                             <div>
                               <p className="font-medium text-gray-900 leading-tight">{emp.designation || 'N/A'}</p>
                               <p className="text-xs text-gray-500 mt-0.5">{getDeptName(emp.department_id)}</p>
                             </div>
                           </td>
-                          <td className="py-4 px-6 text-xs text-gray-600">
+                          <td className="py-4 px-6 text-xs text-gray-600" onClick={() => setSelectedEmpCard(emp)}>
                             {emp.phone || '—'}
                           </td>
-                          <td className="py-4 px-6 text-xs text-gray-500">
+                          <td className="py-4 px-6 text-xs text-gray-500" onClick={() => setSelectedEmpCard(emp)}>
                             {emp.joining_date ? new Date(emp.joining_date).toLocaleDateString() : '—'}
                           </td>
-                          <td className="py-4 px-6 font-semibold text-gray-900">
+                          <td className="py-4 px-6 font-semibold text-gray-900" onClick={() => setSelectedEmpCard(emp)}>
                             ₹{(emp.basic_salary || 0).toLocaleString()}
                           </td>
-                          <td className="py-4 px-6">
+                          <td className="py-4 px-6" onClick={() => setSelectedEmpCard(emp)}>
                             <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1 rounded-full border ${
                               emp.is_active ? TYPE_STYLES.Active : TYPE_STYLES.Inactive
                             }`}>
@@ -1313,10 +1314,10 @@ export default function SSSPortal() {
                           </td>
                           <td className="py-4 px-6 text-center">
                             <div className="flex items-center justify-center gap-2">
-                              <button onClick={() => handleOpenEditModal(emp)} className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors">
+                              <button onClick={(e) => { e.stopPropagation(); handleOpenEditModal(emp); }} className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors">
                                 <Edit size={13} />
                               </button>
-                              <button onClick={() => handleDeleteEmployee(emp.id, `${emp.first_name} ${emp.last_name}`)} className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete employee">
+                              <button onClick={(e) => { e.stopPropagation(); handleDeleteEmployee(emp.id, `${emp.first_name} ${emp.last_name}`); }} className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete employee">
                                 <Trash2 size={13} />
                               </button>
                             </div>
@@ -1327,6 +1328,101 @@ export default function SSSPortal() {
                   </table>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* ───── EMPLOYEE PROFILE CARD MODAL ───── */}
+          {selectedEmpCard && (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center p-4"
+              style={{ background: 'rgba(10,15,40,0.55)', backdropFilter: 'blur(6px)' }}
+              onClick={() => setSelectedEmpCard(null)}
+            >
+              <div
+                className="relative w-full max-w-3xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col sm:flex-row animate-fadeIn"
+                onClick={e => e.stopPropagation()}
+                style={{ minHeight: 420 }}
+              >
+                {/* Close Button */}
+                <button
+                  onClick={() => setSelectedEmpCard(null)}
+                  className="absolute top-4 right-4 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-white/80 border border-gray-200 text-gray-500 hover:text-red-500 hover:bg-red-50 transition-all shadow-sm"
+                >
+                  <X size={15} />
+                </button>
+
+                {/* LEFT: Photo / Avatar Panel */}
+                <div className="sm:w-2/5 w-full bg-gradient-to-br from-[#4F6AF7] via-[#6D84FF] to-[#a78bfa] flex flex-col items-center justify-center p-8 gap-5">
+                  <div className="w-32 h-32 rounded-full bg-white/20 border-4 border-white/50 flex items-center justify-center text-white font-black text-5xl shadow-lg">
+                    {selectedEmpCard.first_name?.[0]?.toUpperCase()}{selectedEmpCard.last_name?.[0]?.toUpperCase()}
+                  </div>
+                  <div className="text-center">
+                    <p className="text-white font-extrabold text-xl leading-tight">
+                      {selectedEmpCard.first_name} {selectedEmpCard.last_name}
+                    </p>
+                    <p className="text-indigo-100 text-sm mt-1">{selectedEmpCard.designation || 'Employee'}</p>
+                    <span className={`inline-flex items-center gap-1 mt-3 text-[11px] font-bold px-3 py-1 rounded-full ${
+                      selectedEmpCard.is_active
+                        ? 'bg-emerald-400/20 text-emerald-100 border border-emerald-300/40'
+                        : 'bg-gray-400/20 text-gray-200 border border-gray-300/40'
+                    }`}>
+                      {selectedEmpCard.is_active ? '● Active' : '● Inactive'}
+                    </span>
+                  </div>
+                  <div className="w-full mt-2 bg-white/10 rounded-2xl p-4 text-center">
+                    <p className="text-indigo-100 text-[10px] font-semibold uppercase tracking-widest mb-1">Employee ID</p>
+                    <p className="text-white font-mono text-xs break-all">{selectedEmpCard.id}</p>
+                  </div>
+                </div>
+
+                {/* RIGHT: Full Details Panel */}
+                <div className="sm:w-3/5 w-full p-7 overflow-y-auto flex flex-col gap-5">
+                  <div>
+                    <h3 className="text-lg font-extrabold text-gray-900">Employee Profile</h3>
+                    <p className="text-xs text-gray-400 mt-0.5">Complete information about this team member.</p>
+                  </div>
+
+                  {/* Detail Grid */}
+                  <div className="grid grid-cols-1 gap-3">
+                    {[
+                      { icon: Briefcase, label: 'Department', value: getDeptName(selectedEmpCard.department_id) },
+                      { icon: Phone, label: 'Phone', value: selectedEmpCard.phone || '—' },
+                      { icon: Calendar, label: 'Date Joined', value: selectedEmpCard.joining_date ? new Date(selectedEmpCard.joining_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' }) : '—' },
+                      { icon: DollarSign, label: 'Basic Salary', value: `₹${(selectedEmpCard.basic_salary || 0).toLocaleString('en-IN')}` },
+                      { icon: Landmark, label: 'Bank Account', value: selectedEmpCard.bank_account || '—' },
+                      { icon: FileText, label: 'Bank IFSC', value: selectedEmpCard.bank_ifsc || '—' },
+                      { icon: Info, label: 'PAN Number', value: selectedEmpCard.pan_number || '—' },
+                      { icon: Info, label: 'PF Number', value: selectedEmpCard.pf_number || '—' },
+                    ].map(({ icon: Icon, label, value }) => (
+                      <div key={label} className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100">
+                        <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
+                          <Icon size={14} className="text-[#4F6AF7]" />
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{label}</p>
+                          <p className="text-sm font-semibold text-gray-900 mt-0.5">{value}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      onClick={() => { setSelectedEmpCard(null); handleOpenEditModal(selectedEmpCard); }}
+                      className="flex-1 h-10 flex items-center justify-center gap-1.5 bg-[#4F6AF7] hover:bg-[#3d58e5] text-white text-xs font-bold rounded-xl shadow-md transition-all"
+                    >
+                      <Edit size={13} /> Edit Profile
+                    </button>
+                    <button
+                      onClick={() => setSelectedEmpCard(null)}
+                      className="h-10 px-4 flex items-center justify-center border border-gray-200 text-gray-600 hover:bg-gray-50 text-xs font-semibold rounded-xl transition-all"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
