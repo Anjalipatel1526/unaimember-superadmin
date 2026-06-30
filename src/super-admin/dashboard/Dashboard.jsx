@@ -84,7 +84,6 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Main Chart */}
         <div className="lg:col-span-2 glass-card p-8 rounded-[2rem] relative overflow-hidden">
-          <div className="border-beam rounded-[2rem]" />
           <div className="flex items-center justify-between mb-10 relative z-10">
             <div>
               <h3 className="text-xl font-bold text-gray-900">Platform Scaling</h3>

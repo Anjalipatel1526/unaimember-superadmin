@@ -14,6 +14,8 @@ import AuditLogs    from './super-admin/logs/AuditLogs';
 import Settings     from './super-admin/settings/Settings';
 
 import HRPortal      from './hr/HRPortal';
+import SSSPortal     from './sss/SSSPortal';
+import SSSEmployeeDashboard from './sss/SSSEmployeeDashboard';
 
 /* ── Analytics ─────────────────────────────────────────────── */
 function Analytics() {
@@ -78,6 +80,13 @@ export default function App() {
 
       <Route path="/admin" element={<CompanyPortal />} />
       <Route path="/hr" element={<HRPortal />} />
+      <Route path="/sss/admin" element={<SSSPortal />} />
+      <Route path="/sss/Employee Details" element={<SSSEmployeeDashboard />} />
+      <Route path="/sss/Employee details" element={<SSSEmployeeDashboard />} />
+      <Route path="/sss/Employee Detail" element={<SSSEmployeeDashboard />} />
+      <Route path="/sss/Employee detail" element={<SSSEmployeeDashboard />} />
+      <Route path="/sss/EmployeeDetail" element={<SSSEmployeeDashboard />} />
+      <Route path="/sss/Employeedetail" element={<SSSEmployeeDashboard />} />
 
       <Route path="*" element={<div className="p-20 text-center text-gray-500 font-bold">404 - NOT FOUND</div>} />
     </Routes>
