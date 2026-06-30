@@ -1347,7 +1347,7 @@ export default function SSSPortal() {
                 <div
                   className="relative w-full bg-white rounded-2xl shadow-2xl overflow-hidden flex"
                   onClick={e => e.stopPropagation()}
-                  style={{ maxWidth: 720, maxHeight: '92vh' }}
+                  style={{ maxWidth: 800, maxHeight: '92vh' }}
                 >
                   {/* Close */}
                   <button
@@ -1358,18 +1358,18 @@ export default function SSSPortal() {
                   </button>
 
                   {/* ── LEFT PANEL ── */}
-                  <div className="w-56 shrink-0 bg-gray-50 border-r border-gray-100 flex flex-col items-center p-6 gap-4">
-                    {/* Avatar card - white card with photo */}
-                    <div className="w-full bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center pt-4 pb-5 px-4 relative" style={{ minHeight: 200 }}>
-                      {/* Active badge */}
-                      <span className={`absolute top-3 right-3 text-[9px] font-bold px-2 py-0.5 rounded-full tracking-wide ${
+                  <div className="w-64 shrink-0 bg-gray-50 border-r border-gray-100 flex flex-col p-5 gap-4">
+                    {/* Avatar card — photo fills the top box */}
+                    <div className="w-full bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden relative">
+                      {/* ACTIVE badge */}
+                      <span className={`absolute top-3 right-3 z-10 text-[9px] font-bold px-2 py-0.5 rounded-full tracking-wide ${
                         selectedEmpCard.is_active ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-100 text-gray-400'
                       }`}>
                         {selectedEmpCard.is_active ? 'ACTIVE' : 'INACTIVE'}
                       </span>
 
-                      {/* Photo upload */}
-                      <label className="cursor-pointer group relative mt-2">
+                      {/* Photo — fills top of the card */}
+                      <label className="cursor-pointer group block relative w-full" style={{ height: 170 }}>
                         <input type="file" accept="image/*" className="hidden" onChange={e => {
                           const file = e.target.files?.[0];
                           if (file) {
@@ -1378,51 +1378,52 @@ export default function SSSPortal() {
                             reader.readAsDataURL(file);
                           }
                         }} />
-                        <div className="w-20 h-20 rounded-full overflow-hidden bg-gradient-to-br from-indigo-100 to-indigo-200 flex items-center justify-center shadow-md relative">
-                          {selectedEmpCard._photoPreview ? (
-                            <img src={selectedEmpCard._photoPreview} alt="Employee" className="w-full h-full object-cover" />
-                          ) : (
-                            <span className="text-indigo-700 font-black text-2xl select-none">
+                        {selectedEmpCard._photoPreview ? (
+                          <img src={selectedEmpCard._photoPreview} alt="Employee" className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-br from-indigo-100 via-indigo-200 to-indigo-300 flex flex-col items-center justify-center gap-2">
+                            <span className="text-indigo-700 font-black text-5xl select-none" style={{ fontFamily: "'Inter', sans-serif" }}>
                               {selectedEmpCard.first_name?.[0]?.toUpperCase()}{selectedEmpCard.last_name?.[0]?.toUpperCase()}
                             </span>
-                          )}
-                          <div className="absolute inset-0 bg-black/30 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-full">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth="2.5">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                            </svg>
                           </div>
+                        )}
+                        {/* Upload hover overlay */}
+                        <div className="absolute inset-0 bg-black/25 flex flex-col items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth="2">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                          <p className="text-white text-[10px] font-semibold">Upload Photo</p>
                         </div>
-                        <p className="text-[8px] text-gray-400 text-center mt-1.5 font-medium">Click to upload</p>
                       </label>
 
-                      {/* Name + role */}
-                      <p className="text-gray-900 font-bold text-sm mt-3 text-center leading-tight">
-                        {selectedEmpCard.first_name} {selectedEmpCard.last_name}
-                      </p>
-                      <p className="text-[10px] font-bold mt-1 tracking-widest uppercase" style={{ color: '#4F6AF7' }}>
-                        {selectedEmpCard.designation || 'Employee'}
-                      </p>
-                    </div>
-
-                    {/* ID + Dept below the card */}
-                    <div className="w-full space-y-2">
-                      <div className="flex flex-col gap-0.5">
-                        <p className="text-[9px] text-gray-400 font-semibold uppercase tracking-widest">Employee ID</p>
-                        <p className="text-[11px] font-bold text-gray-700 font-mono">{selectedEmpCard.id.slice(0, 8).toUpperCase()}</p>
-                      </div>
-                      <div className="flex flex-col gap-0.5">
-                        <p className="text-[9px] text-gray-400 font-semibold uppercase tracking-widest">Department</p>
-                        <p className="text-[11px] font-semibold text-gray-700">{getDeptName(selectedEmpCard.department_id)}</p>
+                      {/* Bottom info row inside the card: Name+Designation LEFT · ID+Dept RIGHT */}
+                      <div className="flex items-start justify-between gap-2 px-4 py-3">
+                        {/* Left: name + designation */}
+                        <div className="min-w-0">
+                          <p className="text-gray-900 font-bold text-sm leading-tight truncate" style={{ fontFamily: "'Inter', sans-serif" }}>
+                            {selectedEmpCard.first_name} {selectedEmpCard.last_name}
+                          </p>
+                          <p className="text-[10px] font-bold mt-0.5 uppercase tracking-wider truncate" style={{ color: '#4F6AF7', fontFamily: "'Inter', sans-serif" }}>
+                            {selectedEmpCard.designation || 'Employee'}
+                          </p>
+                        </div>
+                        {/* Right: ID + Department */}
+                        <div className="shrink-0 text-right">
+                          <p className="text-[8px] text-gray-400 font-semibold uppercase tracking-widest leading-none">ID</p>
+                          <p className="text-[10px] font-bold text-gray-700 font-mono mt-0.5">{selectedEmpCard.id.slice(0, 8).toUpperCase()}</p>
+                          <p className="text-[8px] text-gray-400 font-semibold uppercase tracking-widest leading-none mt-1.5">Dept</p>
+                          <p className="text-[10px] font-semibold text-gray-600 mt-0.5 max-w-[80px] text-right leading-tight">{getDeptName(selectedEmpCard.department_id)}</p>
+                        </div>
                       </div>
                     </div>
 
                     {/* Edit button */}
                     <button
                       onClick={() => { setSelectedEmpCard(null); handleOpenEditModal(selectedEmpCard); }}
-                      className="w-full h-8 flex items-center justify-center gap-1.5 bg-[#4F6AF7] hover:bg-[#3d58e5] text-white text-[11px] font-bold rounded-xl transition-all mt-auto"
+                      className="w-full h-9 flex items-center justify-center gap-1.5 bg-[#4F6AF7] hover:bg-[#3d58e5] text-white text-xs font-bold rounded-xl transition-all mt-auto"
                     >
-                      <Edit size={11} /> Edit Profile
+                      <Edit size={12} /> Edit Profile
                     </button>
                   </div>
 
