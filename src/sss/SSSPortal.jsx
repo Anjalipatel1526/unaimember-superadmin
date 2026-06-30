@@ -324,63 +324,36 @@ export default function SSSPortal() {
         return;
       }
 
+      // Build rows using only the columns that exist in the DB schema
+      const buildRow = (userId) => ({
+        company_id: company.id,
+        user_id: userId,
+        type: 'announcement',
+        title: newNotifTitle.trim(),
+        body: newNotifBody.trim(),
+        is_read: false,
+        created_at: new Date().toISOString()
+      });
+
       let rows = [];
       if (newNotifRecipientType === 'all') {
-        rows = [{
-          company_id: company.id,
-          user_id: null,
-          type: 'announcement',
-          title: newNotifTitle.trim(),
-          body: newNotifBody.trim(),
-          is_read: false,
-          priority: newNotifPriority,
-          attachment_url: newNotifAttachmentUrl.trim() || null,
-          attachment_name: newNotifAttachmentName.trim() || null,
-          created_at: new Date().toISOString()
-        }];
+        // Broadcast: single row with user_id = null, visible to all employees
+        rows = [buildRow(null)];
       } else {
         const activeRecipients = targetEmployees.filter(emp => emp.user_id);
         if (activeRecipients.length === 0) {
-          alert('None of the targeted employees have a linked user account to receive individual notifications.');
-          setSendingNotif(false);
-          return;
+          // Fallback: insert as broadcast if no auth user_id is linked
+          rows = [buildRow(null)];
+        } else {
+          rows = activeRecipients.map(emp => buildRow(emp.user_id));
         }
-        rows = activeRecipients.map(emp => ({
-          company_id: company.id,
-          user_id: emp.user_id,
-          type: 'announcement',
-          title: newNotifTitle.trim(),
-          body: newNotifBody.trim(),
-          is_read: false,
-          priority: newNotifPriority,
-          attachment_url: newNotifAttachmentUrl.trim() || null,
-          attachment_name: newNotifAttachmentName.trim() || null,
-          created_at: new Date().toISOString()
-        }));
       }
 
-      let { error } = await supabase
+      const { error } = await supabase
         .from('notifications')
         .insert(rows);
 
-      if (error && error.code === '42703') {
-        console.warn('Extended columns do not exist. Omit and retry.');
-        const fallbackRows = rows.map(r => ({
-          company_id: r.company_id,
-          user_id: r.user_id,
-          type: r.type,
-          title: r.title,
-          body: r.body,
-          is_read: r.is_read,
-          created_at: r.created_at
-        }));
-        const { error: fallbackError } = await supabase
-          .from('notifications')
-          .insert(fallbackRows);
-        if (fallbackError) throw fallbackError;
-      } else if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
       setNewNotifTitle('');
       setNewNotifBody('');
