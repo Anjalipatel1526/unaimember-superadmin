@@ -2545,9 +2545,9 @@ export default function SSSPortal() {
                         <button
                           type="submit"
                           disabled={sendingNotif}
-                          className="w-full h-10 bg-[#4F6AF7] hover:bg-[#3d58e5] text-white font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
+                          className="w-full h-10 bg-[#4F6AF7] hover:bg-[#3d58e5] text-white font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 text-[11px] sm:text-xs"
                         >
-                          {sendingNotif ? 'Publishing...' : 'Send Notification'}
+                          {sendingNotif ? 'Publishing...' : 'Send & Sync to Supabase & Employee Dashboard'}
                           <ArrowRight size={14} />
                         </button>
                       </div>
