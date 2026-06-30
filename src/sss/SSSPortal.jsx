@@ -1335,72 +1335,72 @@ export default function SSSPortal() {
           {selectedEmpCard && (
             <div
               className="fixed inset-0 z-50 flex items-center justify-center p-4"
-              style={{ background: 'rgba(10,15,40,0.55)', backdropFilter: 'blur(6px)' }}
+              style={{ background: 'rgba(10,15,40,0.45)', backdropFilter: 'blur(8px)' }}
               onClick={() => setSelectedEmpCard(null)}
             >
               <div
-                className="relative w-full max-w-3xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col sm:flex-row animate-fadeIn"
+                className="relative w-full bg-white rounded-2xl shadow-2xl overflow-hidden flex"
                 onClick={e => e.stopPropagation()}
-                style={{ minHeight: 420 }}
+                style={{ maxWidth: 580, maxHeight: '88vh' }}
               >
                 {/* Close Button */}
                 <button
                   onClick={() => setSelectedEmpCard(null)}
-                  className="absolute top-4 right-4 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-white/80 border border-gray-200 text-gray-500 hover:text-red-500 hover:bg-red-50 transition-all shadow-sm"
+                  className="absolute top-3 right-3 z-10 w-7 h-7 flex items-center justify-center rounded-full bg-white/90 border border-gray-200 text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all shadow-sm"
                 >
-                  <X size={15} />
+                  <X size={13} />
                 </button>
 
-                {/* LEFT: Photo / Avatar Panel */}
-                <div className="sm:w-2/5 w-full bg-gradient-to-br from-[#4F6AF7] via-[#6D84FF] to-[#a78bfa] flex flex-col items-center justify-center p-8 gap-5">
-                  <div className="w-32 h-32 rounded-full bg-white/20 border-4 border-white/50 flex items-center justify-center text-white font-black text-5xl shadow-lg">
+                {/* LEFT: Avatar Panel — slim column */}
+                <div className="w-36 shrink-0 bg-gradient-to-b from-[#4F6AF7] to-[#8094FF] flex flex-col items-center justify-center p-5 gap-3">
+                  <div className="w-16 h-16 rounded-full bg-white/20 border-2 border-white/50 flex items-center justify-center text-white font-black text-2xl shadow-md">
                     {selectedEmpCard.first_name?.[0]?.toUpperCase()}{selectedEmpCard.last_name?.[0]?.toUpperCase()}
                   </div>
                   <div className="text-center">
-                    <p className="text-white font-extrabold text-xl leading-tight">
-                      {selectedEmpCard.first_name} {selectedEmpCard.last_name}
+                    <p className="text-white font-extrabold text-[11px] leading-tight text-center">
+                      {selectedEmpCard.first_name}<br/>{selectedEmpCard.last_name}
                     </p>
-                    <p className="text-indigo-100 text-sm mt-1">{selectedEmpCard.designation || 'Employee'}</p>
-                    <span className={`inline-flex items-center gap-1 mt-3 text-[11px] font-bold px-3 py-1 rounded-full ${
+                    <p className="text-indigo-200 text-[9px] mt-1 leading-snug text-center">{selectedEmpCard.designation || 'Employee'}</p>
+                    <span className={`inline-flex items-center gap-0.5 mt-2 text-[9px] font-bold px-2 py-0.5 rounded-full ${
                       selectedEmpCard.is_active
-                        ? 'bg-emerald-400/20 text-emerald-100 border border-emerald-300/40'
-                        : 'bg-gray-400/20 text-gray-200 border border-gray-300/40'
+                        ? 'bg-emerald-400/25 text-emerald-100 border border-emerald-300/40'
+                        : 'bg-gray-400/25 text-gray-200 border border-gray-300/40'
                     }`}>
                       {selectedEmpCard.is_active ? '● Active' : '● Inactive'}
                     </span>
                   </div>
-                  <div className="w-full mt-2 bg-white/10 rounded-2xl p-4 text-center">
-                    <p className="text-indigo-100 text-[10px] font-semibold uppercase tracking-widest mb-1">Employee ID</p>
-                    <p className="text-white font-mono text-xs break-all">{selectedEmpCard.id}</p>
+                  <div className="w-full bg-white/10 rounded-xl p-2 text-center mt-1">
+                    <p className="text-indigo-200 text-[8px] font-semibold uppercase tracking-widest mb-0.5">ID</p>
+                    <p className="text-white font-mono text-[8px] break-all leading-snug">{selectedEmpCard.id.slice(0,18)}…</p>
                   </div>
                 </div>
 
-                {/* RIGHT: Full Details Panel */}
-                <div className="sm:w-3/5 w-full p-7 overflow-y-auto flex flex-col gap-5">
-                  <div>
-                    <h3 className="text-lg font-extrabold text-gray-900">Employee Profile</h3>
-                    <p className="text-xs text-gray-400 mt-0.5">Complete information about this team member.</p>
+                {/* RIGHT: Details Panel */}
+                <div className="flex-1 p-5 overflow-y-auto flex flex-col gap-3">
+                  <div className="border-b border-gray-100 pb-2">
+                    <h3 className="text-sm font-extrabold text-gray-900">Employee Profile</h3>
+                    <p className="text-[10px] text-gray-400">Full details for {selectedEmpCard.first_name} {selectedEmpCard.last_name}</p>
                   </div>
 
-                  {/* Detail Grid */}
-                  <div className="grid grid-cols-1 gap-3">
+                  {/* 2-column detail grid */}
+                  <div className="grid grid-cols-2 gap-2">
                     {[
                       { icon: Briefcase, label: 'Department', value: getDeptName(selectedEmpCard.department_id) },
                       { icon: Phone, label: 'Phone', value: selectedEmpCard.phone || '—' },
-                      { icon: Calendar, label: 'Date Joined', value: selectedEmpCard.joining_date ? new Date(selectedEmpCard.joining_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' }) : '—' },
+                      { icon: Calendar, label: 'Date Joined', value: selectedEmpCard.joining_date ? new Date(selectedEmpCard.joining_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—' },
                       { icon: DollarSign, label: 'Basic Salary', value: `₹${(selectedEmpCard.basic_salary || 0).toLocaleString('en-IN')}` },
                       { icon: Landmark, label: 'Bank Account', value: selectedEmpCard.bank_account || '—' },
                       { icon: FileText, label: 'Bank IFSC', value: selectedEmpCard.bank_ifsc || '—' },
                       { icon: Info, label: 'PAN Number', value: selectedEmpCard.pan_number || '—' },
                       { icon: Info, label: 'PF Number', value: selectedEmpCard.pf_number || '—' },
                     ].map(({ icon: Icon, label, value }) => (
-                      <div key={label} className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100">
-                        <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
-                          <Icon size={14} className="text-[#4F6AF7]" />
+                      <div key={label} className="flex items-start gap-2 p-2.5 bg-gray-50/80 rounded-xl border border-gray-100">
+                        <div className="w-6 h-6 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0 mt-0.5">
+                          <Icon size={11} className="text-[#4F6AF7]" />
                         </div>
-                        <div>
-                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{label}</p>
-                          <p className="text-sm font-semibold text-gray-900 mt-0.5">{value}</p>
+                        <div className="min-w-0">
+                          <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wide leading-none">{label}</p>
+                          <p className="text-[11px] font-semibold text-gray-900 mt-0.5 truncate">{value}</p>
                         </div>
                       </div>
                     ))}
@@ -1410,13 +1410,13 @@ export default function SSSPortal() {
                   <div className="flex gap-2 pt-1">
                     <button
                       onClick={() => { setSelectedEmpCard(null); handleOpenEditModal(selectedEmpCard); }}
-                      className="flex-1 h-10 flex items-center justify-center gap-1.5 bg-[#4F6AF7] hover:bg-[#3d58e5] text-white text-xs font-bold rounded-xl shadow-md transition-all"
+                      className="flex-1 h-8 flex items-center justify-center gap-1 bg-[#4F6AF7] hover:bg-[#3d58e5] text-white text-[11px] font-bold rounded-xl shadow-sm shadow-[#4F6AF7]/20 transition-all"
                     >
-                      <Edit size={13} /> Edit Profile
+                      <Edit size={11} /> Edit Profile
                     </button>
                     <button
                       onClick={() => setSelectedEmpCard(null)}
-                      className="h-10 px-4 flex items-center justify-center border border-gray-200 text-gray-600 hover:bg-gray-50 text-xs font-semibold rounded-xl transition-all"
+                      className="h-8 px-3 flex items-center justify-center border border-gray-200 text-gray-500 hover:bg-gray-50 text-[11px] font-semibold rounded-xl transition-all"
                     >
                       Close
                     </button>
