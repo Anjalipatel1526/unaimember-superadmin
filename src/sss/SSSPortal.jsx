@@ -5,7 +5,8 @@ import {
   Download, FileJson, Edit, Trash2, X, RefreshCw, Info, AlertTriangle,
   Clock, CreditCard, Landmark, FileText, ChevronRight, LayoutDashboard,
   ClipboardList, Settings as SettingsIcon, BarChart2, Award, Award as LeadIcon,
-  ChevronLeft, TrendingUp, UserCheck, CalendarDays, Activity, Bell
+  ChevronLeft, TrendingUp, UserCheck, CalendarDays, Activity, Bell,
+  ArrowRight, Paperclip
 } from 'lucide-react';
 import { 
   BarChart, Bar,
@@ -37,6 +38,7 @@ export default function SSSPortal() {
   const [newNotifRecipientType, setNewNotifRecipientType] = useState('all');
   const [newNotifTargetDept, setNewNotifTargetDept] = useState('');
   const [newNotifTargetEmp, setNewNotifTargetEmp] = useState('');
+  const [newNotifTargetTeam, setNewNotifTargetTeam] = useState('');
   const [newNotifPriority, setNewNotifPriority] = useState('Medium');
   const [newNotifAttachmentUrl, setNewNotifAttachmentUrl] = useState('');
   const [newNotifAttachmentName, setNewNotifAttachmentName] = useState('');
@@ -310,6 +312,8 @@ export default function SSSPortal() {
         targetEmployees = [...employees];
       } else if (newNotifRecipientType === 'department') {
         targetEmployees = employees.filter(emp => emp.department_id === newNotifTargetDept);
+      } else if (newNotifRecipientType === 'team') {
+        targetEmployees = employees.filter(emp => emp.reporting_manager_id === newNotifTargetTeam);
       } else if (newNotifRecipientType === 'employee') {
         const emp = employees.find(emp => emp.id === newNotifTargetEmp);
         if (emp) targetEmployees = [emp];
@@ -343,6 +347,7 @@ export default function SSSPortal() {
 
       setNewNotifTitle('');
       setNewNotifBody('');
+      setNewNotifTargetTeam('');
       setNewNotifAttachmentUrl('');
       setNewNotifAttachmentName('');
       setNewNotifScheduledFor('');
@@ -2417,6 +2422,7 @@ export default function SSSPortal() {
                           >
                             <option value="all">All Employees</option>
                             <option value="department">Specific Department</option>
+                            <option value="team">Specific Team (Lead/Manager)</option>
                             <option value="employee">Individual Employee</option>
                           </select>
                         </div>
@@ -2435,6 +2441,23 @@ export default function SSSPortal() {
                             <option value="">-- Choose Department --</option>
                             {departments.map(d => (
                               <option key={d.id} value={d.id}>{d.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+
+                      {newNotifRecipientType === 'team' && (
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-[10px] font-bold text-gray-400 uppercase">Select Target Team (Reporting Manager/Lead)</label>
+                          <select
+                            value={newNotifTargetTeam}
+                            onChange={e => setNewNotifTargetTeam(e.target.value)}
+                            required
+                            className="h-10 px-3 border border-gray-255/75 rounded-xl bg-white outline-none focus:border-[#4F6AF7]"
+                          >
+                            <option value="">-- Choose Lead/Manager --</option>
+                            {employees.filter(emp => emp.designation === 'Team Lead' || emp.designation === 'Manager').map(mgr => (
+                              <option key={mgr.id} value={mgr.id}>{mgr.first_name} {mgr.last_name} ({mgr.designation})</option>
                             ))}
                           </select>
                         </div>
