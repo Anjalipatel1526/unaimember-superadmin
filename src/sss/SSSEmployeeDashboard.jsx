@@ -520,6 +520,22 @@ export default function SSSEmployeeDashboard() {
     }
   }, [selectedEmployee]);
 
+  // Realtime subscription for employee dashboard tasks
+  useEffect(() => {
+    if (!selectedEmployee || !company) return;
+
+    const channel = supabase.channel(`employee-task-updates-${selectedEmployee.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'sss_tasks', filter: `company_id=eq.${company.id}` }, () => fetchEmployeeTasks(selectedEmployee.id, company.id))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'sss_task_assignments', filter: `employee_id=eq.${selectedEmployee.id}` }, () => fetchEmployeeTasks(selectedEmployee.id, company.id))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'sss_task_feedback', filter: `employee_id=eq.${selectedEmployee.id}` }, () => fetchEmployeeTasks(selectedEmployee.id, company.id))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'sss_task_reviews' }, () => fetchEmployeeTasks(selectedEmployee.id, company.id))
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [selectedEmployee, company]);
+
   const handleSelectEmployee = async (emp) => {
     setSelectedEmployee(emp);
     localStorage.setItem('sss_employee_session_id', emp.id);

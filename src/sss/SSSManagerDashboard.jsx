@@ -168,16 +168,26 @@ export default function SSSManagerDashboard() {
   }, []);
 
   const fetchTasks = async () => {
-    const [taskRes, assignRes, fbRes, revRes] = await Promise.all([
-      supabase.from('sss_tasks').select('*').eq('company_id', SSS_CO).order('created_at', { ascending: false }),
-      supabase.from('sss_task_assignments').select('*'),
-      supabase.from('sss_task_feedback').select('*'),
-      supabase.from('sss_task_reviews').select('*'),
-    ]);
-    setTasks(taskRes.data         || []);
-    setTaskAssignments(assignRes.data || []);
-    setTaskFeedback(fbRes.data    || []);
-    setTaskReviews(revRes.data    || []);
+    try {
+      const [taskRes, assignRes, fbRes, revRes] = await Promise.all([
+        supabase.from('sss_tasks').select('*').eq('company_id', SSS_CO).order('created_at', { ascending: false }),
+        supabase.from('sss_task_assignments').select('*'),
+        supabase.from('sss_task_feedback').select('*'),
+        supabase.from('sss_task_reviews').select('*'),
+      ]);
+
+      if (taskRes.error) console.error('Supabase tasks error:', taskRes.error);
+      if (assignRes.error) console.error('Supabase task assignments error:', assignRes.error);
+      if (fbRes.error) console.error('Supabase task feedback error:', fbRes.error);
+      if (revRes.error) console.error('Supabase task reviews error:', revRes.error);
+
+      setTasks(taskRes.data         || []);
+      setTaskAssignments(assignRes.data || []);
+      setTaskFeedback(fbRes.data    || []);
+      setTaskReviews(revRes.data    || []);
+    } catch (e) {
+      console.error('fetchTasks error:', e);
+    }
   };
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
@@ -191,7 +201,7 @@ export default function SSSManagerDashboard() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'sss_task_reviews' },     () => fetchTasks())
       .subscribe();
     return () => supabase.removeChannel(channel);
-  }, []);
+  }, [SSS_CO]);
 
   /* ─────────── TASK CRUD ─────────── */
   const sendNotification = async (title, body, userId = null) => {
