@@ -269,9 +269,21 @@ export default function SSSManagerDashboard() {
   };
 
   const handleDeleteTask = async (taskId) => {
-    if (!window.confirm('Delete this task?')) return;
-    await supabase.from('sss_tasks').delete().eq('id', taskId);
-    await fetchTasks();
+    if (!window.confirm('Are you sure you want to permanently delete this task and all associated logs, feedback, and assignments? This cannot be undone.')) return;
+    try {
+      // Cascade delete child records
+      await supabase.from('sss_task_assignments').delete().eq('task_id', taskId);
+      await supabase.from('sss_task_feedback').delete().eq('task_id', taskId);
+      await supabase.from('sss_task_reviews').delete().eq('task_id', taskId);
+      await supabase.from('sss_task_progress').delete().eq('task_id', taskId);
+
+      const { error } = await supabase.from('sss_tasks').delete().eq('id', taskId);
+      if (error) throw error;
+      alert('Task permanently deleted!');
+      await fetchTasks();
+    } catch (e) {
+      alert('Failed to delete task: ' + e.message);
+    }
   };
 
   const handleDuplicateTask = async (task) => {
@@ -388,6 +400,30 @@ export default function SSSManagerDashboard() {
   const handleLeaveAction = async (id, status) => {
     await supabase.from('leave_requests').update({ status }).eq('id', id);
     setLeaves(prev => prev.map(l => l.id === id ? { ...l, status } : l));
+  };
+
+  const handleDeleteAttendance = async (id) => {
+    if (!window.confirm('Are you sure you want to permanently delete this attendance record? This cannot be undone.')) return;
+    try {
+      const { error } = await supabase.from('attendance').delete().eq('id', id);
+      if (error) throw error;
+      alert('Attendance record permanently deleted.');
+      await fetchAll();
+    } catch (e) {
+      alert('Failed to delete attendance record: ' + e.message);
+    }
+  };
+
+  const handleDeleteLeave = async (id) => {
+    if (!window.confirm('Are you sure you want to permanently delete this leave request? This cannot be undone.')) return;
+    try {
+      const { error } = await supabase.from('leave_requests').delete().eq('id', id);
+      if (error) throw error;
+      alert('Leave request permanently deleted.');
+      await fetchAll();
+    } catch (e) {
+      alert('Failed to delete leave request: ' + e.message);
+    }
   };
 
   const handleAddAlert = async () => {
@@ -792,7 +828,9 @@ export default function SSSManagerDashboard() {
       {/* ── SIDEBAR ── */}
       <aside className="flex flex-col shrink-0 bg-white border-r border-gray-100 shadow-sm transition-all duration-300" style={{ width: sidebarOpen ? 220 : 64 }}>
         <div className="flex items-center gap-3 px-4 h-16 border-b border-gray-100">
-          <img src="/story_seed_logo.png" alt="Story Seed Studio" className="w-9 h-9 rounded-xl object-contain shrink-0" />
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-white border border-gray-200 shadow-sm overflow-hidden">
+            <img src="/story_seed_logo.png" alt="Story Seed Studio" className="w-full h-full object-contain p-1" />
+          </div>
           {sidebarOpen && (
             <div className="min-w-0">
               <p className="font-extrabold text-sm text-gray-900 leading-none truncate">Manager Portal</p>
@@ -935,7 +973,7 @@ export default function SSSManagerDashboard() {
                   {filteredAtt.length === 0 ? <p className="text-sm text-gray-400 text-center py-10">No records found.</p> : (
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
-                        <TH cols={['Employee','Date','Check In','Check Out','Status','Hours']} />
+                        <TH cols={['Employee','Date','Check In','Check Out','Status','Hours','Action']} />
                         <tbody className="divide-y divide-gray-50">
                           {filteredAtt.map(a => {
                             let hrs = '—';
@@ -948,6 +986,15 @@ export default function SSSManagerDashboard() {
                                 <td className="py-3 px-4 text-gray-500">{a.check_out||'—'}</td>
                                 <td className="py-3 px-4"><Badge label={a.status||'Present'} colorMap={{ Present:{bg:'#ecfdf5',text:'#059669',border:'#a7f3d0'}, Absent:{bg:'#fef2f2',text:'#dc2626',border:'#fecaca'} }} /></td>
                                 <td className="py-3 px-4 text-gray-600 font-medium">{hrs}</td>
+                                <td className="py-3 px-4">
+                                  <button 
+                                    onClick={() => handleDeleteAttendance(a.id)}
+                                    className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                                    title="Delete Attendance entry permanently"
+                                  >
+                                    <Trash2 size={12} />
+                                  </button>
+                                </td>
                               </tr>
                             );
                           })}
@@ -1012,12 +1059,17 @@ export default function SSSManagerDashboard() {
                               <td className="py-3 px-3 text-gray-500 text-xs">{l.end_date}</td>
                               <td className="py-3 px-3 text-gray-500 text-xs max-w-[120px] truncate">{l.reason||'—'}</td>
                               <td className="py-3 px-3"><Badge label={l.status} colorMap={STATUS_COLORS} /></td>
-                              <td className="py-3 px-3">{l.status==='Pending' && (
-                                <div className="flex gap-1">
-                                  <button onClick={() => handleLeaveAction(l.id,'Approved')} className="w-6 h-6 flex items-center justify-center rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-600 transition-colors"><CheckCircle size={12}/></button>
-                                  <button onClick={() => handleLeaveAction(l.id,'Rejected')} className="w-6 h-6 flex items-center justify-center rounded-lg bg-red-50 hover:bg-red-100 text-red-500 transition-colors"><XCircle size={12}/></button>
+                               <td className="py-3 px-3">
+                                <div className="flex items-center gap-1">
+                                  {l.status==='Pending' && (
+                                    <>
+                                      <button onClick={() => handleLeaveAction(l.id,'Approved')} className="w-6 h-6 flex items-center justify-center rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-600 transition-colors" title="Approve"><CheckCircle size={12}/></button>
+                                      <button onClick={() => handleLeaveAction(l.id,'Rejected')} className="w-6 h-6 flex items-center justify-center rounded-lg bg-red-50 hover:bg-red-100 text-red-500 transition-colors" title="Reject"><XCircle size={12}/></button>
+                                    </>
+                                  )}
+                                  <button onClick={() => handleDeleteLeave(l.id)} className="w-6 h-6 flex items-center justify-center rounded-lg bg-gray-50 hover:bg-red-50 text-gray-400 hover:text-red-600 transition-colors" title="Delete request permanently"><Trash2 size={12}/></button>
                                 </div>
-                              )}</td>
+                              </td>
                             </tr>
                           ))}
                         </tbody>

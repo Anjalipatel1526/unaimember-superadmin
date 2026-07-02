@@ -835,6 +835,61 @@ export default function SSSPortal() {
     });
   };
 
+  // Delete Daily Report submission — uses admin client to bypass RLS
+  const handleDeleteDailyReport = async (id) => {
+    setDeleteConfirm({
+      title: 'Delete Daily Report',
+      message: 'Permanently remove this daily report submission from the Supabase database? This cannot be undone.',
+      onConfirm: async () => {
+        setDeleteConfirm(null);
+        setError(null);
+        const adminClient = supabaseAdmin || supabase;
+        try {
+          const { error } = await adminClient
+            .from('daily_reports')
+            .delete()
+            .eq('id', id);
+          if (error) {
+            console.error('[SSS Delete] Daily report delete error:', error);
+            throw error;
+          }
+          console.log('[SSS Delete] ✓ Daily report deleted from Supabase');
+          fetchData();
+        } catch (e) {
+          setError('Failed to delete daily report: ' + e.message + ' — Check F12 console for details.');
+        }
+      }
+    });
+  };
+
+  // Delete Notification Campaign — deletes all notifications matching the title and body
+  const handleDeleteNotificationCampaign = async (title, body) => {
+    setDeleteConfirm({
+      title: 'Delete Broadcast Campaign',
+      message: 'Permanently remove this broadcast notification and all delivery records from Supabase? This cannot be undone.',
+      onConfirm: async () => {
+        setDeleteConfirm(null);
+        setError(null);
+        const adminClient = supabaseAdmin || supabase;
+        try {
+          const { error } = await adminClient
+            .from('notifications')
+            .delete()
+            .eq('title', title)
+            .eq('body', body);
+          if (error) {
+            console.error('[SSS Delete] Broadcast delete error:', error);
+            throw error;
+          }
+          console.log('[SSS Delete] ✓ Broadcast notifications deleted from Supabase');
+          fetchData();
+        } catch (e) {
+          setError('Failed to delete broadcast: ' + e.message + ' — Check F12 console for details.');
+        }
+      }
+    });
+  };
+
   // Helper mapping department_id to Name
   const getDeptName = (deptId) => {
     const dept = departments.find(d => d.id === deptId);
@@ -2826,9 +2881,18 @@ export default function SSSPortal() {
                                   </div>
                                   <div className="min-w-0 flex-1">
                                     <div>
-                                      <div className="text-xs">
-                                        <span className="font-bold text-gray-900">{emp ? `${emp.first_name} ${emp.last_name}` : 'Unknown Employee'}</span>
-                                        <span className="text-gray-400 ml-1">({emp?.designation || 'Specialist'})</span>
+                                      <div className="flex items-center justify-between gap-2">
+                                        <div className="text-xs">
+                                          <span className="font-bold text-gray-900">{emp ? `${emp.first_name} ${emp.last_name}` : 'Unknown Employee'}</span>
+                                          <span className="text-gray-400 ml-1">({emp?.designation || 'Specialist'})</span>
+                                        </div>
+                                        <button 
+                                          onClick={() => handleDeleteDailyReport(report.id)} 
+                                          className="p-1 rounded-lg text-gray-400 hover:text-red-600 hover:bg-gray-100 transition-colors"
+                                          title="Delete Daily Report permanently"
+                                        >
+                                          <Trash2 size={12} />
+                                        </button>
                                       </div>
                                       <p className="text-[10px] text-gray-400 mt-0.5">
                                         Submitted on {new Date(report.submitted_at).toLocaleDateString()} at {new Date(report.submitted_at).toLocaleTimeString()}
@@ -2887,7 +2951,7 @@ export default function SSSPortal() {
                         return (
                           <div key={campaign.id} className="p-4 border border-gray-200 rounded-2xl bg-white shadow-sm space-y-3">
                             <div className="flex items-start justify-between gap-2">
-                              <div>
+                              <div className="min-w-0 flex-1">
                                 <h4 className="text-xs font-bold text-gray-900 truncate max-w-[150px]" title={campaign.title}>
                                   {campaign.title}
                                 </h4>
@@ -2895,9 +2959,18 @@ export default function SSSPortal() {
                                   {campaign.created_at ? new Date(campaign.created_at).toLocaleString() : 'Just now'}
                                 </p>
                               </div>
-                              <span className={`text-[8px] font-bold px-1.5 py-0.5 border rounded-md uppercase tracking-wider ${getPriorityClass(campaign.priority)}`}>
-                                {campaign.priority}
-                              </span>
+                              <div className="flex items-center gap-1 shrink-0">
+                                <span className={`text-[8px] font-bold px-1.5 py-0.5 border rounded-md uppercase tracking-wider ${getPriorityClass(campaign.priority)}`}>
+                                  {campaign.priority}
+                                </span>
+                                <button
+                                  onClick={() => handleDeleteNotificationCampaign(campaign.title, campaign.body)}
+                                  className="p-1 rounded-lg text-gray-400 hover:text-red-600 hover:bg-gray-100 transition-colors"
+                                  title="Delete Broadcast Campaign permanently"
+                                >
+                                  <Trash2 size={11} />
+                                </button>
+                              </div>
                             </div>
 
                             <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed font-sans">
@@ -3177,8 +3250,14 @@ export default function SSSPortal() {
                             </td>
                             <td className="py-3 px-4 text-center">
                               <button onClick={async () => {
-                                if (window.confirm('Are you sure you want to delete this task from the system?')) {
+                                if (window.confirm('Are you sure you want to permanently delete this task and all associated logs, reports, and assignments? This cannot be undone.')) {
                                   try {
+                                    // Cascade delete child records first
+                                    await supabase.from('sss_task_assignments').delete().eq('task_id', t.id);
+                                    await supabase.from('sss_task_feedback').delete().eq('task_id', t.id);
+                                    await supabase.from('sss_task_reviews').delete().eq('task_id', t.id);
+                                    await supabase.from('sss_task_progress').delete().eq('task_id', t.id);
+                                    
                                     const { error } = await supabase.from('sss_tasks').delete().eq('id', t.id);
                                     if (error) throw error;
                                     alert('Task deleted successfully!');
