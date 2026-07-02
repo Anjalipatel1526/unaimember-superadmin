@@ -130,6 +130,7 @@ export default function SSSManagerDashboard() {
   const [reviewingTask,    setReviewingTask]    = useState(null);
   const [savingReview,     setSavingReview]     = useState(false);
   const [selectedEmpDetail, setSelectedEmpDetail] = useState(null); // for employee task card modal
+  const [deleteConfirm, setDeleteConfirm] = useState(null); // delete confirmation dialog state
 
   /* ── Alerts/Daily tab state ── */
   const [alertInput,   setAlertInput]   = useState('');
@@ -269,21 +270,27 @@ export default function SSSManagerDashboard() {
   };
 
   const handleDeleteTask = async (taskId) => {
-    if (!window.confirm('Are you sure you want to permanently delete this task and all associated logs, feedback, and assignments? This cannot be undone.')) return;
-    try {
-      // Cascade delete child records
-      await supabase.from('sss_task_assignments').delete().eq('task_id', taskId);
-      await supabase.from('sss_task_feedback').delete().eq('task_id', taskId);
-      await supabase.from('sss_task_reviews').delete().eq('task_id', taskId);
-      await supabase.from('sss_task_progress').delete().eq('task_id', taskId);
+    const task = tasks.find(t => t.id === taskId);
+    setDeleteConfirm({
+      title: 'Delete Task Logs',
+      message: `Permanently delete task "${task?.task_title || ''}" and all associated progress logs, feedback, and assignments? This cannot be undone.`,
+      onConfirm: async () => {
+        setDeleteConfirm(null);
+        try {
+          // Cascade delete child records
+          await supabase.from('sss_task_assignments').delete().eq('task_id', taskId);
+          await supabase.from('sss_task_feedback').delete().eq('task_id', taskId);
+          await supabase.from('sss_task_reviews').delete().eq('task_id', taskId);
+          await supabase.from('sss_task_progress').delete().eq('task_id', taskId);
 
-      const { error } = await supabase.from('sss_tasks').delete().eq('id', taskId);
-      if (error) throw error;
-      alert('Task permanently deleted!');
-      await fetchTasks();
-    } catch (e) {
-      alert('Failed to delete task: ' + e.message);
-    }
+          const { error } = await supabase.from('sss_tasks').delete().eq('id', taskId);
+          if (error) throw error;
+          await fetchTasks();
+        } catch (e) {
+          alert('Failed to delete task: ' + e.message);
+        }
+      }
+    });
   };
 
   const handleDuplicateTask = async (task) => {
@@ -403,27 +410,37 @@ export default function SSSManagerDashboard() {
   };
 
   const handleDeleteAttendance = async (id) => {
-    if (!window.confirm('Are you sure you want to permanently delete this attendance record? This cannot be undone.')) return;
-    try {
-      const { error } = await supabase.from('attendance').delete().eq('id', id);
-      if (error) throw error;
-      alert('Attendance record permanently deleted.');
-      await fetchAll();
-    } catch (e) {
-      alert('Failed to delete attendance record: ' + e.message);
-    }
+    setDeleteConfirm({
+      title: 'Delete Attendance Log',
+      message: 'Permanently remove this attendance entry from the database? This cannot be undone.',
+      onConfirm: async () => {
+        setDeleteConfirm(null);
+        try {
+          const { error } = await supabase.from('attendance').delete().eq('id', id);
+          if (error) throw error;
+          await fetchAll();
+        } catch (e) {
+          alert('Failed to delete attendance record: ' + e.message);
+        }
+      }
+    });
   };
 
   const handleDeleteLeave = async (id) => {
-    if (!window.confirm('Are you sure you want to permanently delete this leave request? This cannot be undone.')) return;
-    try {
-      const { error } = await supabase.from('leave_requests').delete().eq('id', id);
-      if (error) throw error;
-      alert('Leave request permanently deleted.');
-      await fetchAll();
-    } catch (e) {
-      alert('Failed to delete leave request: ' + e.message);
-    }
+    setDeleteConfirm({
+      title: 'Delete Leave Request',
+      message: 'Permanently remove this leave request from the database? This cannot be undone.',
+      onConfirm: async () => {
+        setDeleteConfirm(null);
+        try {
+          const { error } = await supabase.from('leave_requests').delete().eq('id', id);
+          if (error) throw error;
+          await fetchAll();
+        } catch (e) {
+          alert('Failed to delete leave request: ' + e.message);
+        }
+      }
+    });
   };
 
   const handleAddAlert = async () => {
@@ -1412,6 +1429,39 @@ export default function SSSManagerDashboard() {
           </div>
         );
       })()}
+
+      {/* ── Delete Confirmation Modal ──────────────────────────── */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-slideUp">
+            {/* Header */}
+            <div className="bg-red-50 px-6 pt-6 pb-4 flex items-start gap-4">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                <Trash2 size={18} className="text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-gray-900">{deleteConfirm.title}</h3>
+                <p className="text-xs text-gray-500 mt-1 leading-relaxed">{deleteConfirm.message}</p>
+              </div>
+            </div>
+            {/* Actions */}
+            <div className="px-6 py-4 flex justify-end gap-3 border-t border-gray-100">
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                className="h-10 px-5 text-xs font-semibold border border-gray-200 text-gray-600 hover:bg-gray-50 rounded-xl transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={deleteConfirm.onConfirm}
+                className="h-10 px-5 text-xs font-bold bg-red-600 hover:bg-red-700 text-white rounded-xl shadow-md shadow-red-600/20 transition-all"
+              >
+                Yes, Delete Permanently
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

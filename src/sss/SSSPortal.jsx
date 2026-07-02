@@ -3249,23 +3249,27 @@ export default function SSSPortal() {
                               ) : <span className="text-gray-300">—</span>}
                             </td>
                             <td className="py-3 px-4 text-center">
-                              <button onClick={async () => {
-                                if (window.confirm('Are you sure you want to permanently delete this task and all associated logs, reports, and assignments? This cannot be undone.')) {
-                                  try {
-                                    // Cascade delete child records first
-                                    await supabase.from('sss_task_assignments').delete().eq('task_id', t.id);
-                                    await supabase.from('sss_task_feedback').delete().eq('task_id', t.id);
-                                    await supabase.from('sss_task_reviews').delete().eq('task_id', t.id);
-                                    await supabase.from('sss_task_progress').delete().eq('task_id', t.id);
-                                    
-                                    const { error } = await supabase.from('sss_tasks').delete().eq('id', t.id);
-                                    if (error) throw error;
-                                    alert('Task deleted successfully!');
-                                    fetchData();
-                                  } catch (err) {
-                                    alert('Failed to delete task: ' + err.message);
+                              <button onClick={() => {
+                                setDeleteConfirm({
+                                  title: 'Delete Task Logs',
+                                  message: `Permanently delete task "${t.task_title}" and all associated progress logs, reports, and assignments? This cannot be undone.`,
+                                  onConfirm: async () => {
+                                    setDeleteConfirm(null);
+                                    try {
+                                      // Cascade delete child records first
+                                      await supabase.from('sss_task_assignments').delete().eq('task_id', t.id);
+                                      await supabase.from('sss_task_feedback').delete().eq('task_id', t.id);
+                                      await supabase.from('sss_task_reviews').delete().eq('task_id', t.id);
+                                      await supabase.from('sss_task_progress').delete().eq('task_id', t.id);
+                                      
+                                      const { error } = await supabase.from('sss_tasks').delete().eq('id', t.id);
+                                      if (error) throw error;
+                                      fetchData();
+                                    } catch (err) {
+                                      setError('Failed to delete task: ' + err.message);
+                                    }
                                   }
-                                }
+                                });
                               }} className="text-red-500 hover:text-red-700 font-bold text-[10px] flex items-center justify-center gap-1 mx-auto">
                                 <Trash2 size={12} /> Delete
                               </button>
