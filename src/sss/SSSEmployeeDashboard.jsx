@@ -209,10 +209,11 @@ export default function SSSEmployeeDashboard() {
         .select('*')
         .eq('employee_id', employeeId);
       
-      setTaskAssignments(assignments || []);
+      const validAssignments = assignments || [];
+      setTaskAssignments(validAssignments);
       
-      if (assignments && assignments.length > 0) {
-        const taskIds = assignments.map(a => a.task_id);
+      if (validAssignments.length > 0) {
+        const taskIds = validAssignments.map(a => a.task_id);
         const { data: tasksData } = await supabase
           .from('sss_tasks')
           .select('*')
@@ -221,7 +222,7 @@ export default function SSSEmployeeDashboard() {
         
         setTasks(tasksData || []);
       } else {
-        setTasks([]);
+        if (!silent) setTasks([]);
       }
 
       // Fetch feedback
@@ -256,6 +257,9 @@ export default function SSSEmployeeDashboard() {
 
   const handleAcceptTask = async (task) => {
     try {
+      // Optimistic update
+      setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: 'Accepted' } : t));
+
       await supabase.from('sss_tasks')
         .update({ status: 'Accepted', last_updated: new Date().toISOString() })
         .eq('id', task.id);
@@ -274,7 +278,7 @@ export default function SSSEmployeeDashboard() {
         status: 'Accepted'
       });
 
-      await fetchEmployeeTasks(selectedEmployee.id, company.id);
+      await fetchEmployeeTasks(selectedEmployee.id, company.id, true);
     } catch (e) {
       console.error(e);
     }
@@ -283,6 +287,9 @@ export default function SSSEmployeeDashboard() {
   const handleRejectTaskSubmit = async () => {
     if (!rejectionModalTask || !rejectionReason.trim()) return;
     try {
+      // Optimistic update
+      setTasks(prev => prev.map(t => t.id === rejectionModalTask.id ? { ...t, status: 'Rejected' } : t));
+
       await supabase.from('sss_tasks')
         .update({ 
           status: 'Rejected', 
@@ -307,7 +314,7 @@ export default function SSSEmployeeDashboard() {
 
       setRejectionModalTask(null);
       setRejectionReason('');
-      await fetchEmployeeTasks(selectedEmployee.id, company.id);
+      await fetchEmployeeTasks(selectedEmployee.id, company.id, true);
     } catch (e) {
       console.error(e);
     }
@@ -315,6 +322,9 @@ export default function SSSEmployeeDashboard() {
 
   const handleStartTask = async (task) => {
     try {
+      // Optimistic update
+      setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: 'In Progress' } : t));
+
       await supabase.from('sss_tasks')
         .update({ status: 'In Progress', last_updated: new Date().toISOString() })
         .eq('id', task.id);
@@ -333,7 +343,7 @@ export default function SSSEmployeeDashboard() {
         status: 'In Progress'
       });
 
-      await fetchEmployeeTasks(selectedEmployee.id, company.id);
+      await fetchEmployeeTasks(selectedEmployee.id, company.id, true);
     } catch (e) {
       console.error(e);
     }
@@ -341,6 +351,9 @@ export default function SSSEmployeeDashboard() {
 
   const handlePauseTask = async (task) => {
     try {
+      // Optimistic update
+      setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: 'Paused' } : t));
+
       await supabase.from('sss_tasks')
         .update({ status: 'Paused', last_updated: new Date().toISOString() })
         .eq('id', task.id);
@@ -359,7 +372,7 @@ export default function SSSEmployeeDashboard() {
         status: 'Paused'
       });
 
-      await fetchEmployeeTasks(selectedEmployee.id, company.id);
+      await fetchEmployeeTasks(selectedEmployee.id, company.id, true);
     } catch (e) {
       console.error(e);
     }
@@ -367,6 +380,9 @@ export default function SSSEmployeeDashboard() {
 
   const handleResumeTask = async (task) => {
     try {
+      // Optimistic update
+      setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: 'In Progress' } : t));
+
       await supabase.from('sss_tasks')
         .update({ status: 'In Progress', last_updated: new Date().toISOString() })
         .eq('id', task.id);
@@ -385,7 +401,7 @@ export default function SSSEmployeeDashboard() {
         status: 'In Progress'
       });
 
-      await fetchEmployeeTasks(selectedEmployee.id, company.id);
+      await fetchEmployeeTasks(selectedEmployee.id, company.id, true);
     } catch (e) {
       console.error(e);
     }
@@ -393,6 +409,9 @@ export default function SSSEmployeeDashboard() {
 
   const handleUpdateProgress = async (task, pct, note = '') => {
     try {
+      // Optimistic update - set the value immediately so there's no blink
+      setTasks(prev => prev.map(t => t.id === task.id ? { ...t, completion_pct: Number(pct) } : t));
+
       await supabase.from('sss_tasks')
         .update({ 
           completion_pct: Number(pct),
@@ -414,7 +433,8 @@ export default function SSSEmployeeDashboard() {
         null
       );
 
-      await fetchEmployeeTasks(selectedEmployee.id, company.id);
+      // Silent re-fetch - no spinner shown
+      await fetchEmployeeTasks(selectedEmployee.id, company.id, true);
     } catch (e) {
       console.error(e);
     }
@@ -1561,7 +1581,7 @@ export default function SSSEmployeeDashboard() {
 
         {/* ── TAB content: MY TASKS ── */}
         {activeTab === 'My Tasks' && (
-          <div className="space-y-6 animate-fadeIn">
+          <div className="space-y-6">
             {/* Summary statistics */}
             <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
               {[
@@ -1588,7 +1608,7 @@ export default function SSSEmployeeDashboard() {
                 <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{tasks.length} total tasks</span>
               </div>
 
-              {loadingTasks ? (
+              {loadingTasks && tasks.length === 0 ? (
                 <div className="py-12 flex flex-col items-center justify-center gap-2">
                   <div className="w-6 h-6 border-2 border-[#4F6AF7] border-t-transparent rounded-full animate-spin" />
                   <p className="text-[10px] text-gray-400 font-bold">Loading tasks...</p>
