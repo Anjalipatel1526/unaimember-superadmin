@@ -197,6 +197,8 @@ export default function SSSManagerDashboard() {
 
   const handleCreateTask = async () => {
     if (!taskForm.task_title.trim()) return;
+    const titleWordCount = taskForm.task_title.trim().split(/\s+/).filter(Boolean).length;
+    if (titleWordCount < 5) return;
     setSavingTask(true);
     try {
       const { data: newTask } = await supabase.from('sss_tasks').insert({
@@ -225,6 +227,8 @@ export default function SSSManagerDashboard() {
 
   const handleUpdateTask = async () => {
     if (!selectedTask) return;
+    const titleWordCount = taskForm.task_title.trim().split(/\s+/).filter(Boolean).length;
+    if (titleWordCount < 5) return;
     setSavingTask(true);
     try {
       await supabase.from('sss_tasks').update({
@@ -399,9 +403,12 @@ export default function SSSManagerDashboard() {
       <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Task Title */}
         <div className="lg:col-span-2">
-          <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-1.5">Task Title *</label>
+          <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-1.5">Task Title * (Minimum 5 words)</label>
           <input value={taskForm.task_title} onChange={e => setTaskForm(p => ({ ...p, task_title: e.target.value }))}
-            placeholder="Enter task title…" className="w-full h-10 px-4 text-sm rounded-xl border border-gray-200 focus:outline-none focus:border-indigo-400" />
+            placeholder="Enter task title (must be at least 5 words)…" className="w-full h-10 px-4 text-sm rounded-xl border border-gray-200 focus:outline-none focus:border-indigo-400" />
+          {taskForm.task_title.trim() && taskForm.task_title.trim().split(/\s+/).filter(Boolean).length < 5 && (
+            <p className="text-[10px] text-red-500 font-bold mt-1">⚠️ Task title must have a minimum of 5 words (current: {taskForm.task_title.trim().split(/\s+/).filter(Boolean).length})</p>
+          )}
         </div>
 
         {/* Description */}
@@ -529,7 +536,8 @@ export default function SSSManagerDashboard() {
           className="h-9 px-5 text-xs font-semibold rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-100 transition-all">
           Cancel
         </button>
-        <button onClick={taskView === 'create' ? handleCreateTask : handleUpdateTask} disabled={savingTask || !taskForm.task_title.trim()}
+        <button onClick={taskView === 'create' ? handleCreateTask : handleUpdateTask} 
+          disabled={savingTask || !taskForm.task_title.trim() || taskForm.task_title.trim().split(/\s+/).filter(Boolean).length < 5}
           className="h-9 px-6 text-xs font-bold rounded-xl text-white flex items-center gap-1.5 transition-all disabled:opacity-50"
           style={{ background: BRAND }}>
           {savingTask ? <RefreshCw size={12} className="animate-spin" /> : <CheckCircle size={12} />}
