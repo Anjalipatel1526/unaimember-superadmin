@@ -6,7 +6,7 @@ import {
   Clock, CreditCard, Landmark, FileText, ChevronRight, LayoutDashboard,
   ClipboardList, Settings as SettingsIcon, BarChart2, Award, Award as LeadIcon,
   ChevronLeft, TrendingUp, UserCheck, CalendarDays, Activity, Bell,
-  ArrowRight, Paperclip
+  ArrowRight, Paperclip, CheckSquare
 } from 'lucide-react';
 import { 
   BarChart, Bar,
