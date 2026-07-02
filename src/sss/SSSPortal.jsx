@@ -45,6 +45,18 @@ export default function SSSPortal() {
   const [sendingNotif, setSendingNotif] = useState(false);
   const [selectedEmpCard, setSelectedEmpCard] = useState(null);
 
+  // Task Monitor states
+  const [tasks, setTasks] = useState([]);
+  const [taskAssignments, setTaskAssignments] = useState([]);
+  const [taskFeedback, setTaskFeedback] = useState([]);
+  const [taskReviews, setTaskReviews] = useState([]);
+  
+  // Task Monitor filter states
+  const [taskFilterStatus, setTaskFilterStatus] = useState('all');
+  const [taskFilterEmployee, setTaskFilterEmployee] = useState('all');
+  const [taskFilterDepartment, setTaskFilterDepartment] = useState('all');
+  const [taskFilterSearch, setTaskFilterSearch] = useState('');
+
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDept, setSelectedDept] = useState('all');
@@ -280,6 +292,18 @@ export default function SSSPortal() {
       if (notifError) throw notifError;
       setNotifications(notifData || []);
 
+      // 8. Fetch Tasks tables for Task Monitor
+      const [taskRes, assignRes, fbRes, revRes] = await Promise.all([
+        supabase.from('sss_tasks').select('*').eq('company_id', sssCompany.id).order('created_at', { ascending: false }),
+        supabase.from('sss_task_assignments').select('*'),
+        supabase.from('sss_task_feedback').select('*'),
+        supabase.from('sss_task_reviews').select('*'),
+      ]);
+      setTasks(taskRes.data || []);
+      setTaskAssignments(assignRes.data || []);
+      setTaskFeedback(fbRes.data || []);
+      setTaskReviews(revRes.data || []);
+
     } catch (e) {
       console.error('Fetch error:', e);
       setError(e.message || 'Failed to connect and fetch data from Supabase backend.');
@@ -400,6 +424,34 @@ export default function SSSPortal() {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'notifications' },
+        () => {
+          fetchData();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'sss_tasks' },
+        () => {
+          fetchData();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'sss_task_assignments' },
+        () => {
+          fetchData();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'sss_task_feedback' },
+        () => {
+          fetchData();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'sss_task_reviews' },
         () => {
           fetchData();
         }
@@ -988,6 +1040,7 @@ export default function SSSPortal() {
             { name: 'Attendance', icon: Clock },
             { name: 'Salary Console', icon: CreditCard },
             { name: 'Reports & Leaves', icon: ClipboardList },
+            { name: 'Task Monitor', icon: CheckSquare },
             { name: 'Daily Feeds & Alerts', icon: Bell },
             { name: 'Settings', icon: SettingsIcon }
           ].map(item => {
@@ -2878,6 +2931,206 @@ export default function SSSPortal() {
 
               </div>
 
+            </div>
+          )}
+
+          {/* ───────────────── VIEW: TASK MONITOR ───────────────── */}
+          {activeTab === 'Task Monitor' && (
+            <div className="space-y-6 animate-fadeIn">
+              {/* Summary Statistics */}
+              <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+                {[
+                  { label: 'Total Tasks', count: tasks.length, color: '#4F6AF7', sub: 'All created tasks' },
+                  { label: 'Completed', count: tasks.filter(t => t.status === 'Completed').length, color: '#059669', sub: 'Awaiting review' },
+                  { label: 'Approved', count: tasks.filter(t => t.status === 'Approved').length, color: '#15803d', sub: 'Finalized' },
+                  { label: 'Pending', count: tasks.filter(t => ['Pending', 'Accepted', 'In Progress', 'Paused', 'Revision Required'].includes(t.status)).length, color: '#d97706', sub: 'In progress' },
+                  { label: 'Overdue', count: tasks.filter(t => {
+                    const todayStr = new Date().toISOString().split('T')[0];
+                    return t.due_date && t.due_date < todayStr && !['Completed','Approved','Cancelled'].includes(t.status);
+                  }).length, color: '#dc2626', sub: 'Past due date' },
+                ].map(s => (
+                  <div key={s.label} className="bg-white border border-gray-100 p-5 rounded-2xl shadow-sm flex flex-col justify-between">
+                    <div>
+                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">{s.label}</span>
+                      <p className="text-2xl font-extrabold mt-1 leading-none" style={{ color: s.color }}>{s.count}</p>
+                    </div>
+                    <span className="text-[9px] text-gray-400 mt-2 block">{s.sub}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Department & Employee break-down cards */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                
+                {/* Department-wise Tasks */}
+                <div className="bg-white border border-gray-100 rounded-3xl shadow-sm p-6 space-y-4">
+                  <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">🏢 Department Overview</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="border-b border-gray-100 text-[10px] font-bold text-gray-400 uppercase">
+                          <th className="py-2.5 px-3">Department</th>
+                          <th className="py-2.5 px-3 text-center">Assigned</th>
+                          <th className="py-2.5 px-3 text-center">Completed</th>
+                          <th className="py-2.5 px-3 text-center">Approved</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {departments.map(d => {
+                          const deptTasks = tasks.filter(t => t.department_id === d.id);
+                          return (
+                            <tr key={d.id} className="hover:bg-gray-50/50">
+                              <td className="py-2.5 px-3 font-semibold text-gray-800">{d.name}</td>
+                              <td className="py-2.5 px-3 text-center font-bold text-gray-600">{deptTasks.length}</td>
+                              <td className="py-2.5 px-3 text-center text-teal-600 font-bold">{deptTasks.filter(t=>t.status==='Completed').length}</td>
+                              <td className="py-2.5 px-3 text-center text-green-600 font-bold">{deptTasks.filter(t=>t.status==='Approved').length}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Employee Performance Overview */}
+                <div className="bg-white border border-gray-100 rounded-3xl shadow-sm p-6 space-y-4">
+                  <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">👤 Employee Performance</h3>
+                  <div className="overflow-x-auto max-h-[220px] overflow-y-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="border-b border-gray-100 text-[10px] font-bold text-gray-400 uppercase">
+                          <th className="py-2.5 px-3">Employee</th>
+                          <th className="py-2.5 px-3 text-center">Total</th>
+                          <th className="py-2.5 px-3 text-center">Completed</th>
+                          <th className="py-2.5 px-3 text-center">Approved</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {employees.map(emp => {
+                          const empAssigns = taskAssignments.filter(a => a.employee_id === emp.id);
+                          const empTasks = tasks.filter(t => empAssigns.some(a => a.task_id === t.id));
+                          return (
+                            <tr key={emp.id} className="hover:bg-gray-50/50">
+                              <td className="py-2.5 px-3 font-semibold text-gray-800">{emp.first_name} {emp.last_name}</td>
+                              <td className="py-2.5 px-3 text-center font-bold text-gray-600">{empTasks.length}</td>
+                              <td className="py-2.5 px-3 text-center text-teal-600 font-bold">{empTasks.filter(t=>t.status==='Completed').length}</td>
+                              <td className="py-2.5 px-3 text-center text-green-600 font-bold">{empTasks.filter(t=>t.status==='Approved').length}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Full Task Grid Monitor */}
+              <div className="bg-white border border-gray-100 rounded-3xl shadow-sm p-6 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-100 pb-4">
+                  <div>
+                    <h3 className="text-sm font-bold text-gray-900">Task Log Directory</h3>
+                    <p className="text-[11px] text-gray-400 mt-0.5">Filter and review details of all tasks generated in SSS system</p>
+                  </div>
+                  <button onClick={() => {
+                    const rows = [['Task ID','Title','Project','Priority','Status','Due Date','Completion']];
+                    tasks.forEach(t => rows.push([t.id.slice(0,8).toUpperCase(), t.task_title, t.project_name||'—', t.priority, t.status, t.due_date||'—', `${t.completion_pct||0}%`]));
+                    const csv = rows.map(r => r.join(',')).join('\n');
+                    const a = document.createElement('a'); a.href = `data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`; a.download = 'hr_tasks_report.csv'; a.click();
+                  }} className="h-8 px-4 bg-indigo-50 hover:bg-indigo-100 text-[#4F6AF7] text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all">
+                    <Download size={12} /> Export CSV
+                  </button>
+                </div>
+
+                {/* Filters */}
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 bg-gray-50/50 p-3.5 rounded-2xl border border-gray-100">
+                  <div className="relative">
+                    <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input value={taskFilterSearch} onChange={e => setTaskFilterSearch(e.target.value)} placeholder="Search tasks…" className="w-full pl-8 pr-3 h-8 text-[11px] rounded-xl border border-gray-200 bg-white focus:outline-none" />
+                  </div>
+                  <select value={taskFilterStatus} onChange={e => setTaskFilterStatus(e.target.value)} className="h-8 px-2 text-[11px] rounded-xl border border-gray-200 bg-white">
+                    <option value="all">All Status</option>
+                    {['Pending','Accepted','In Progress','Paused','Completed','Approved','Rejected','Revision Required','Cancelled'].map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                  <select value={taskFilterDepartment} onChange={e => setTaskFilterDepartment(e.target.value)} className="h-8 px-2 text-[11px] rounded-xl border border-gray-200 bg-white">
+                    <option value="all">All Departments</option>
+                    {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                  </select>
+                  <select value={taskFilterEmployee} onChange={e => setTaskFilterEmployee(e.target.value)} className="h-8 px-2 text-[11px] rounded-xl border border-gray-200 bg-white">
+                    <option value="all">All Employees</option>
+                    {employees.map(e => <option key={e.id} value={e.id}>{e.first_name} {e.last_name}</option>)}
+                  </select>
+                </div>
+
+                {/* Table */}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="border-b border-gray-100 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                        <th className="py-3 px-4">Task ID</th>
+                        <th className="py-3 px-4">Title</th>
+                        <th className="py-3 px-4">Assignee</th>
+                        <th className="py-3 px-4">Priority</th>
+                        <th className="py-3 px-4">Status</th>
+                        <th className="py-3 px-4">Due Date</th>
+                        <th className="py-3 px-4">Progress</th>
+                        <th className="py-3 px-4 text-center">Feedback</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {tasks.filter(t => {
+                        const matchSearch = !taskFilterSearch || t.task_title.toLowerCase().includes(taskFilterSearch.toLowerCase());
+                        const matchStatus = taskFilterStatus === 'all' || t.status === taskFilterStatus;
+                        const matchDept = taskFilterDepartment === 'all' || t.department_id === taskFilterDepartment;
+                        const assigns = taskAssignments.filter(a => a.task_id === t.id).map(a => a.employee_id);
+                        const matchEmp = taskFilterEmployee === 'all' || assigns.includes(taskFilterEmployee);
+                        return matchSearch && matchStatus && matchDept && matchEmp;
+                      }).map(t => {
+                        const assigns = taskAssignments.filter(a => a.task_id === t.id);
+                        const names = assigns.map(a => {
+                          const e = employees.find(emp => emp.id === a.employee_id);
+                          return e ? `${e.first_name} ${e.last_name}` : '';
+                        }).filter(Boolean).join(', ') || 'Unassigned';
+
+                        const fb = taskFeedback.find(f => f.task_id === t.id);
+                        const rev = taskReviews.find(r => r.task_id === t.id);
+
+                        return (
+                          <tr key={t.id} className="hover:bg-gray-50/50">
+                            <td className="py-3 px-4 font-mono font-bold text-[10px] text-gray-400">{t.id.slice(0,8).toUpperCase()}</td>
+                            <td className="py-3 px-4 font-semibold text-gray-800">{t.task_title}</td>
+                            <td className="py-3 px-4 text-gray-500 max-w-[130px] truncate">{names}</td>
+                            <td className="py-3 px-4">
+                              <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                                t.priority === 'Critical' ? 'bg-red-50 text-red-700'
+                                : t.priority === 'High' ? 'bg-orange-50 text-orange-700'
+                                : t.priority === 'Medium' ? 'bg-amber-50 text-amber-700'
+                                : 'bg-green-50 text-green-700'
+                              }`}>{t.priority}</span>
+                            </td>
+                            <td className="py-3 px-4">
+                              <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-gray-50 border text-gray-600">{t.status}</span>
+                            </td>
+                            <td className="py-3 px-4 text-gray-500">{t.due_date || '—'}</td>
+                            <td className="py-3 px-4 font-bold text-gray-700">{t.completion_pct || 0}%</td>
+                            <td className="py-3 px-4 text-center">
+                              {fb ? (
+                                <button onClick={() => {
+                                  let msg = `Work Summary:\n${fb.work_summary || '—'}\n\nChallenges:\n${fb.challenges || '—'}\n\nLessons Learned:\n${fb.lessons_learned || '—'}`;
+                                  if (rev) {
+                                    msg += `\n\n-----------------\nManager Decision: ${rev.decision}\nRating: ${rev.employee_rating} Stars\nComments: ${rev.manager_comments || '—'}`;
+                                  }
+                                  alert(msg);
+                                }} className="text-[#4F6AF7] hover:underline font-bold text-[10px]">View Feedback</button>
+                              ) : <span className="text-gray-300">—</span>}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           )}
 

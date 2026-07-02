@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { 
   Clock, Calendar, FileText, CheckCircle, XCircle, LogOut, ArrowRight,
   TrendingUp, Award, User, ChevronRight, Briefcase, Plus, CalendarDays, Activity,
-  ClipboardList, CreditCard, Phone, Mail, Shield, Settings, LayoutDashboard, Search, Bell, Archive, Trash2, Paperclip
+  ClipboardList, CreditCard, Phone, Mail, Shield, Settings, LayoutDashboard, Search, Bell, Archive, Trash2, Paperclip,
+  CheckSquare, Star, Play, Pause, Send, Upload
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
@@ -51,6 +52,35 @@ export default function SSSEmployeeDashboard() {
   const [notifFilter, setNotifFilter] = useState('all');
   const [notifSearch, setNotifSearch] = useState('');
   const [expandedNotifId, setExpandedNotifId] = useState(null);
+
+  // Tasks state
+  const [tasks, setTasks] = useState([]);
+  const [taskAssignments, setTaskAssignments] = useState([]);
+  const [taskFeedback, setTaskFeedback] = useState([]);
+  const [taskReviews, setTaskReviews] = useState([]);
+  const [loadingTasks, setLoadingTasks] = useState(false);
+  const [selectedTaskForFeedback, setSelectedTaskForFeedback] = useState(null);
+
+  // Extension request modal state
+  const [extensionModalTask, setExtensionModalTask] = useState(null);
+  const [extensionReason, setExtensionReason] = useState('');
+  const [extensionDate, setExtensionDate] = useState('');
+
+  // Rejection modal state
+  const [rejectionModalTask, setRejectionModalTask] = useState(null);
+  const [rejectionReason, setRejectionReason] = useState('');
+
+  // Feedback form state
+  const [completionForm, setCompletionForm] = useState({
+    completion_date: new Date().toISOString().split('T')[0],
+    hours_worked: '',
+    work_summary: '',
+    challenges: '',
+    suggestions: '',
+    lessons_learned: '',
+    additional_notes: '',
+    file_urls: [''],
+  });
 
   // Set document title without %20
   useEffect(() => {
@@ -162,8 +192,316 @@ export default function SSSEmployeeDashboard() {
 
       if (notifErr) throw notifErr;
       setNotifications(notifData || []);
+      
+      // Fetch employee tasks as well
+      await fetchEmployeeTasks(employeeId, companyId);
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const fetchEmployeeTasks = async (employeeId, companyId) => {
+    try {
+      setLoadingTasks(true);
+      // Fetch task assignments for this employee
+      const { data: assignments } = await supabase
+        .from('sss_task_assignments')
+        .select('*')
+        .eq('employee_id', employeeId);
+      
+      setTaskAssignments(assignments || []);
+      
+      if (assignments && assignments.length > 0) {
+        const taskIds = assignments.map(a => a.task_id);
+        const { data: tasksData } = await supabase
+          .from('sss_tasks')
+          .select('*')
+          .in('id', taskIds)
+          .order('created_at', { ascending: false });
+        
+        setTasks(tasksData || []);
+      } else {
+        setTasks([]);
+      }
+
+      // Fetch feedback
+      const { data: fbData } = await supabase
+        .from('sss_task_feedback')
+        .select('*')
+        .eq('employee_id', employeeId);
+      setTaskFeedback(fbData || []);
+
+      // Fetch reviews
+      const { data: revData } = await supabase
+        .from('sss_task_reviews')
+        .select('*');
+      setTaskReviews(revData || []);
+    } catch (e) {
+      console.error('Error fetching tasks:', e);
+    } finally {
+      setLoadingTasks(false);
+    }
+  };
+
+  const sendRealtimeNotification = async (title, body, userId = null) => {
+    await supabase.from('notifications').insert({
+      company_id: company?.id,
+      user_id: userId,
+      type: 'task_update',
+      title,
+      body,
+      is_read: false
+    });
+  };
+
+  const handleAcceptTask = async (task) => {
+    try {
+      await supabase.from('sss_tasks')
+        .update({ status: 'Accepted', last_updated: new Date().toISOString() })
+        .eq('id', task.id);
+      
+      await sendRealtimeNotification(
+        `Task Accepted: ${task.task_title}`,
+        `${selectedEmployee.first_name} ${selectedEmployee.last_name} accepted: "${task.task_title}".`,
+        null
+      );
+      
+      await supabase.from('sss_task_progress').insert({
+        task_id: task.id,
+        employee_id: selectedEmployee.id,
+        progress_pct: 0,
+        note: 'Task Accepted',
+        status: 'Accepted'
+      });
+
+      await fetchEmployeeTasks(selectedEmployee.id, company.id);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleRejectTaskSubmit = async () => {
+    if (!rejectionModalTask || !rejectionReason.trim()) return;
+    try {
+      await supabase.from('sss_tasks')
+        .update({ 
+          status: 'Rejected', 
+          remarks: `Rejected: ${rejectionReason.trim()}`,
+          last_updated: new Date().toISOString()
+        })
+        .eq('id', rejectionModalTask.id);
+      
+      await sendRealtimeNotification(
+        `Task Rejected: ${rejectionModalTask.task_title}`,
+        `${selectedEmployee.first_name} ${selectedEmployee.last_name} rejected: "${rejectionModalTask.task_title}". Reason: ${rejectionReason.trim()}`,
+        null
+      );
+
+      await supabase.from('sss_task_progress').insert({
+        task_id: rejectionModalTask.id,
+        employee_id: selectedEmployee.id,
+        progress_pct: 0,
+        note: `Rejected: ${rejectionReason.trim()}`,
+        status: 'Rejected'
+      });
+
+      setRejectionModalTask(null);
+      setRejectionReason('');
+      await fetchEmployeeTasks(selectedEmployee.id, company.id);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleStartTask = async (task) => {
+    try {
+      await supabase.from('sss_tasks')
+        .update({ status: 'In Progress', last_updated: new Date().toISOString() })
+        .eq('id', task.id);
+      
+      await sendRealtimeNotification(
+        `Task Started: ${task.task_title}`,
+        `${selectedEmployee.first_name} ${selectedEmployee.last_name} started task: "${task.task_title}".`,
+        null
+      );
+
+      await supabase.from('sss_task_progress').insert({
+        task_id: task.id,
+        employee_id: selectedEmployee.id,
+        progress_pct: 0,
+        note: 'Task Started',
+        status: 'In Progress'
+      });
+
+      await fetchEmployeeTasks(selectedEmployee.id, company.id);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handlePauseTask = async (task) => {
+    try {
+      await supabase.from('sss_tasks')
+        .update({ status: 'Paused', last_updated: new Date().toISOString() })
+        .eq('id', task.id);
+      
+      await sendRealtimeNotification(
+        `Task Paused: ${task.task_title}`,
+        `${selectedEmployee.first_name} ${selectedEmployee.last_name} paused task: "${task.task_title}".`,
+        null
+      );
+
+      await supabase.from('sss_task_progress').insert({
+        task_id: task.id,
+        employee_id: selectedEmployee.id,
+        progress_pct: task.completion_pct || 0,
+        note: 'Task Paused',
+        status: 'Paused'
+      });
+
+      await fetchEmployeeTasks(selectedEmployee.id, company.id);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleResumeTask = async (task) => {
+    try {
+      await supabase.from('sss_tasks')
+        .update({ status: 'In Progress', last_updated: new Date().toISOString() })
+        .eq('id', task.id);
+      
+      await sendRealtimeNotification(
+        `Task Resumed: ${task.task_title}`,
+        `${selectedEmployee.first_name} ${selectedEmployee.last_name} resumed task: "${task.task_title}".`,
+        null
+      );
+
+      await supabase.from('sss_task_progress').insert({
+        task_id: task.id,
+        employee_id: selectedEmployee.id,
+        progress_pct: task.completion_pct || 0,
+        note: 'Task Resumed',
+        status: 'In Progress'
+      });
+
+      await fetchEmployeeTasks(selectedEmployee.id, company.id);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleUpdateProgress = async (task, pct, note = '') => {
+    try {
+      await supabase.from('sss_tasks')
+        .update({ 
+          completion_pct: Number(pct),
+          last_updated: new Date().toISOString() 
+        })
+        .eq('id', task.id);
+
+      await supabase.from('sss_task_progress').insert({
+        task_id: task.id,
+        employee_id: selectedEmployee.id,
+        progress_pct: Number(pct),
+        note: note || 'Progress updated',
+        status: task.status
+      });
+
+      await sendRealtimeNotification(
+        `Progress Updated: ${task.task_title}`,
+        `${selectedEmployee.first_name} ${selectedEmployee.last_name} updated progress to ${pct}% for "${task.task_title}".`,
+        null
+      );
+
+      await fetchEmployeeTasks(selectedEmployee.id, company.id);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleRequestExtensionSubmit = async () => {
+    if (!extensionModalTask || !extensionDate || !extensionReason.trim()) return;
+    try {
+      await sendRealtimeNotification(
+        `Deadline Extension Request: ${extensionModalTask.task_title}`,
+        `${selectedEmployee.first_name} ${selectedEmployee.last_name} requested extension to ${extensionDate} for task: "${extensionModalTask.task_title}". Reason: ${extensionReason.trim()}`,
+        null
+      );
+
+      await supabase.from('sss_task_progress').insert({
+        task_id: extensionModalTask.id,
+        employee_id: selectedEmployee.id,
+        progress_pct: extensionModalTask.completion_pct || 0,
+        note: `Extension Requested to ${extensionDate}. Reason: ${extensionReason.trim()}`,
+        status: extensionModalTask.status
+      });
+
+      setExtensionModalTask(null);
+      setExtensionDate('');
+      setExtensionReason('');
+      alert('Extension request submitted successfully.');
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleCompletionSubmit = async (e) => {
+    e.preventDefault();
+    if (!selectedTaskForFeedback) return;
+    try {
+      const { error: fbErr } = await supabase.from('sss_task_feedback').insert({
+        task_id: selectedTaskForFeedback.id,
+        employee_id: selectedEmployee.id,
+        completion_date: completionForm.completion_date,
+        hours_worked: completionForm.hours_worked ? Number(completionForm.hours_worked) : null,
+        work_summary: completionForm.work_summary,
+        challenges: completionForm.challenges,
+        suggestions: completionForm.suggestions,
+        lessons_learned: completionForm.lessons_learned,
+        additional_notes: completionForm.additional_notes,
+        file_urls: completionForm.file_urls.filter(Boolean)
+      });
+      if (fbErr) throw fbErr;
+
+      await supabase.from('sss_tasks')
+        .update({ 
+          status: 'Completed', 
+          completion_pct: 100,
+          last_updated: new Date().toISOString() 
+        })
+        .eq('id', selectedTaskForFeedback.id);
+
+      await supabase.from('sss_task_progress').insert({
+        task_id: selectedTaskForFeedback.id,
+        employee_id: selectedEmployee.id,
+        progress_pct: 100,
+        note: 'Completed',
+        status: 'Completed'
+      });
+
+      await sendRealtimeNotification(
+        `Task Completed: ${selectedTaskForFeedback.task_title}`,
+        `${selectedEmployee.first_name} ${selectedEmployee.last_name} submitted task completion for "${selectedTaskForFeedback.task_title}".`,
+        null
+      );
+
+      setSelectedTaskForFeedback(null);
+      setCompletionForm({
+        completion_date: new Date().toISOString().split('T')[0],
+        hours_worked: '',
+        work_summary: '',
+        challenges: '',
+        suggestions: '',
+        lessons_learned: '',
+        additional_notes: '',
+        file_urls: ['']
+      });
+
+      await fetchEmployeeTasks(selectedEmployee.id, company.id);
+    } catch (err) {
+      console.error(err);
+      alert('Failed to submit completion feedback: ' + err.message);
     }
   };
 
@@ -562,6 +900,36 @@ export default function SSSEmployeeDashboard() {
           }
         }
       )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'sss_tasks' },
+        () => {
+          const cachedEmpId = localStorage.getItem('sss_employee_session_id');
+          if (cachedEmpId && company) {
+            fetchEmployeeTasks(cachedEmpId, company.id);
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'sss_task_assignments' },
+        () => {
+          const cachedEmpId = localStorage.getItem('sss_employee_session_id');
+          if (cachedEmpId && company) {
+            fetchEmployeeTasks(cachedEmpId, company.id);
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'sss_task_reviews' },
+        () => {
+          const cachedEmpId = localStorage.getItem('sss_employee_session_id');
+          if (cachedEmpId && company) {
+            fetchEmployeeTasks(cachedEmpId, company.id);
+          }
+        }
+      )
       .subscribe();
 
     return () => {
@@ -677,6 +1045,7 @@ export default function SSSEmployeeDashboard() {
             { name: 'Attendance', icon: CalendarDays },
             { name: 'Salary', icon: CreditCard },
             { name: 'Leave Request', icon: ClipboardList },
+            { name: 'My Tasks', icon: CheckSquare },
             { name: 'Notifications', icon: Bell }
           ].map(item => {
             const Icon = item.icon;
@@ -1174,6 +1543,207 @@ export default function SSSEmployeeDashboard() {
           </div>
         )}
 
+        {/* ── TAB content: MY TASKS ── */}
+        {activeTab === 'My Tasks' && (
+          <div className="space-y-6 animate-fadeIn">
+            {/* Summary statistics */}
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+              {[
+                { label: 'Pending', count: tasks.filter(t => t.status === 'Pending').length, color: '#6b7280' },
+                { label: 'In Progress', count: tasks.filter(t => ['In Progress', 'Accepted', 'Paused', 'Revision Required'].includes(t.status)).length, color: '#4F6AF7' },
+                { label: 'Completed', count: tasks.filter(t => t.status === 'Completed').length, color: '#059669' },
+                { label: 'Approved', count: tasks.filter(t => t.status === 'Approved').length, color: '#15803d' },
+                { label: 'Overdue', count: tasks.filter(t => {
+                  const todayStr = new Date().toISOString().split('T')[0];
+                  return t.due_date && t.due_date < todayStr && !['Completed','Approved','Cancelled'].includes(t.status);
+                }).length, color: '#dc2626' },
+              ].map(s => (
+                <div key={s.label} className="bg-white border border-gray-200 p-4 rounded-2xl shadow-sm">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{s.label}</span>
+                  <p className="text-2xl font-extrabold mt-1" style={{ color: s.color }}>{s.count}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Main task columns or list */}
+            <div className="bg-white border border-gray-200 rounded-3xl shadow-sm p-6 space-y-4">
+              <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                <h3 className="text-sm font-bold text-gray-900">Assigned Tasks</h3>
+                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{tasks.length} total tasks</span>
+              </div>
+
+              {loadingTasks ? (
+                <div className="py-12 flex flex-col items-center justify-center gap-2">
+                  <div className="w-6 h-6 border-2 border-[#4F6AF7] border-t-transparent rounded-full animate-spin" />
+                  <p className="text-[10px] text-gray-400 font-bold">Loading tasks...</p>
+                </div>
+              ) : tasks.length === 0 ? (
+                <div className="text-center py-16 text-gray-400 italic text-xs">
+                  No tasks assigned to you.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {tasks.map(task => {
+                    const todayStr = new Date().toISOString().split('T')[0];
+                    const remainingDays = task.due_date 
+                      ? Math.ceil((new Date(task.due_date) - new Date(todayStr)) / (1000 * 60 * 60 * 24)) 
+                      : null;
+                    const isOverdue = task.due_date && task.due_date < todayStr && !['Completed','Approved','Cancelled'].includes(task.status);
+                    
+                    const pColors = {
+                      Low:      'bg-green-50 text-green-700 border-green-100',
+                      Medium:   'bg-amber-50 text-amber-700 border-amber-100',
+                      High:     'bg-orange-50 text-orange-700 border-orange-100',
+                      Critical: 'bg-red-50 text-red-700 border-red-100',
+                    };
+                    
+                    const sColors = {
+                      'Pending':          'bg-gray-50 text-gray-600 border-gray-200',
+                      'Accepted':         'bg-blue-50 text-blue-700 border-blue-100',
+                      'In Progress':      'bg-emerald-50 text-emerald-700 border-emerald-100',
+                      'Paused':           'bg-amber-50 text-amber-700 border-amber-100',
+                      'Completed':        'bg-teal-50 text-teal-700 border-teal-100',
+                      'Approved':         'bg-green-50 text-green-700 border-green-100',
+                      'Rejected':         'bg-rose-50 text-rose-700 border-rose-100',
+                      'Revision Required':'bg-purple-50 text-purple-700 border-purple-100',
+                      'Cancelled':        'bg-gray-100 text-gray-500 border-gray-200',
+                    };
+
+                    const review = taskReviews.find(r => r.task_id === task.id);
+
+                    return (
+                      <div key={task.id} className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm space-y-4 hover:shadow-md transition-shadow relative overflow-hidden flex flex-col justify-between">
+                        
+                        {/* Task Priority & Status Row */}
+                        <div>
+                          <div className="flex items-center justify-between mb-3">
+                            <span className={`text-[9px] font-bold px-2 py-0.5 border rounded-full ${pColors[task.priority] || pColors.Medium}`}>
+                              {task.priority} Priority
+                            </span>
+                            <span className={`text-[9px] font-bold px-2 py-0.5 border rounded-full ${sColors[task.status] || sColors.Pending}`}>
+                              {task.status}
+                            </span>
+                          </div>
+
+                          <h4 className="text-xs font-bold text-gray-900 leading-snug line-clamp-2">{task.task_title}</h4>
+                          {task.project_name && (
+                            <p className="text-[10px] text-indigo-600 font-bold mt-1">📁 {task.project_name}</p>
+                          )}
+                          <p className="text-[10px] text-gray-400 mt-2 line-clamp-3 leading-relaxed">{task.task_description || 'No description provided.'}</p>
+                          
+                          {/* Instructions */}
+                          {task.instructions && (
+                            <div className="bg-gray-50 border border-gray-100 rounded-xl p-2.5 mt-3">
+                              <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wide block mb-1">Instructions</span>
+                              <p className="text-[10px] text-gray-600 leading-relaxed line-clamp-3">{task.instructions}</p>
+                            </div>
+                          )}
+
+                          {/* Manager Remarks / Notes if Revision Required or Rejected */}
+                          {review && (
+                            <div className="bg-purple-50/50 border border-purple-100 rounded-xl p-2.5 mt-3">
+                              <span className="text-[9px] font-bold text-purple-700 uppercase tracking-wide block mb-1">Manager Feedback ({review.decision})</span>
+                              {review.employee_rating && (
+                                <div className="flex gap-0.5 mb-1">
+                                  {[1,2,3,4,5].map(n => <Star key={n} size={10} fill={n <= review.employee_rating ? '#f59e0b' : 'none'} color={n <= review.employee_rating ? '#f59e0b' : '#d1d5db'} />)}
+                                </div>
+                              )}
+                              <p className="text-[10px] text-purple-800 leading-relaxed">{review.manager_comments || 'No comments left.'}</p>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="space-y-3 pt-3 border-t border-gray-100">
+                          {/* Progress slider / bar */}
+                          <div className="space-y-1.5">
+                            <div className="flex justify-between text-[10px] font-bold text-gray-500">
+                              <span>Progress</span>
+                              <span>{task.completion_pct || 0}%</span>
+                            </div>
+                            {['In Progress', 'Accepted', 'Paused', 'Revision Required'].includes(task.status) ? (
+                              <input 
+                                type="range" 
+                                min="0" 
+                                max="100" 
+                                value={task.completion_pct || 0}
+                                onChange={e => setTasks(prev => prev.map(t => t.id === task.id ? { ...t, completion_pct: Number(e.target.value) } : t))}
+                                onMouseUp={e => handleUpdateProgress(task, e.target.value)}
+                                onTouchEnd={e => handleUpdateProgress(task, e.target.value)}
+                                className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#4F6AF7]"
+                              />
+                            ) : (
+                              <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
+                                <div className="bg-[#4F6AF7] h-full rounded-full transition-all" style={{ width: `${task.completion_pct || 0}%` }} />
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Remaining / Due Date Row */}
+                          <div className="flex justify-between items-center text-[10px] text-gray-400">
+                            <div>
+                              <span>📅 Due: </span>
+                              <span className={`font-semibold ${isOverdue ? 'text-red-500 font-bold' : 'text-gray-600'}`}>{task.due_date || '—'}</span>
+                            </div>
+                            {remainingDays !== null && !['Completed','Approved','Cancelled'].includes(task.status) && (
+                              <span className={`font-bold px-1.5 py-0.5 rounded-md ${remainingDays < 0 ? 'bg-red-50 text-red-600' : remainingDays <= 2 ? 'bg-orange-50 text-orange-600' : 'bg-green-50 text-green-600'}`}>
+                                {remainingDays < 0 ? `${Math.abs(remainingDays)}d Overdue` : remainingDays === 0 ? 'Due Today' : `${remainingDays}d left`}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Action triggers depending on status */}
+                          <div className="pt-2 flex flex-wrap gap-1.5">
+                            {task.status === 'Pending' && (
+                              <>
+                                <button onClick={() => handleAcceptTask(task)} className="flex-1 h-8 bg-[#4F6AF7] hover:bg-[#3d58e5] text-white text-[10px] font-bold rounded-xl flex items-center justify-center gap-1 transition-colors">
+                                  Accept
+                                </button>
+                                <button onClick={() => setRejectionModalTask(task)} className="flex-1 h-8 bg-red-50 hover:bg-red-100 text-red-600 text-[10px] font-bold rounded-xl flex items-center justify-center gap-1 transition-colors">
+                                  Reject
+                                </button>
+                              </>
+                            )}
+
+                            {['Accepted', 'Paused'].includes(task.status) && (
+                              <button onClick={() => handleStartTask(task)} className="flex-1 h-8 bg-green-600 hover:bg-green-700 text-white text-[10px] font-bold rounded-xl flex items-center justify-center gap-1 transition-colors">
+                                <Play size={10} /> Start Task
+                              </button>
+                            )}
+
+                            {task.status === 'In Progress' && (
+                              <>
+                                <button onClick={() => handlePauseTask(task)} className="flex-1 h-8 bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-bold rounded-xl flex items-center justify-center gap-1 transition-colors">
+                                  <Pause size={10} /> Pause
+                                </button>
+                                <button onClick={() => setSelectedTaskForFeedback(task)} className="flex-1 h-8 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold rounded-xl flex items-center justify-center gap-1 transition-colors">
+                                  Complete Task
+                                </button>
+                              </>
+                            )}
+
+                            {task.status === 'Revision Required' && (
+                              <button onClick={() => handleStartTask(task)} className="flex-1 h-8 bg-purple-600 hover:bg-purple-700 text-white text-[10px] font-bold rounded-xl flex items-center justify-center gap-1 transition-colors">
+                                Resume Revision
+                              </button>
+                            )}
+
+                            {['In Progress', 'Accepted', 'Paused', 'Revision Required'].includes(task.status) && (
+                              <button onClick={() => setExtensionModalTask(task)} className="h-8 px-2.5 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-500 text-[10px] font-bold rounded-xl flex items-center justify-center transition-colors">
+                                Request Delay
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* ── TAB content: NOTIFICATIONS ── */}
         {activeTab === 'Notifications' && (
           <div className="bg-white border border-gray-200 rounded-3xl p-6 shadow-sm space-y-6 animate-fadeIn max-w-4xl">
@@ -1364,7 +1934,222 @@ export default function SSSEmployeeDashboard() {
         )}
       </main>
 
-      {/* ── Daily Feedback & Sign Out Modal ── */}
+      {/* ── Task Rejection Modal ── */}
+      {rejectionModalTask && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/60 backdrop-blur-sm p-4 animate-fadeIn">
+          <div className="bg-white border border-gray-200 rounded-3xl p-6 shadow-2xl max-w-md w-full space-y-4">
+            <div>
+              <h3 className="text-base font-extrabold text-gray-900">Reject Task</h3>
+              <p className="text-xs text-gray-500 mt-1">Please provide a reason for rejecting the task: <strong className="text-gray-700">"{rejectionModalTask.task_title}"</strong>.</p>
+            </div>
+            <div className="space-y-3">
+              <textarea
+                value={rejectionReason}
+                onChange={e => setRejectionReason(e.target.value)}
+                placeholder="Why are you rejecting this task? (Required)"
+                rows="3"
+                className="w-full p-3 text-xs border border-gray-200 rounded-xl outline-none focus:border-red-400"
+              />
+              <div className="flex gap-2">
+                <button onClick={() => { setRejectionModalTask(null); setRejectionReason(''); }} className="flex-1 h-9 border border-gray-200 text-gray-600 font-bold rounded-xl hover:bg-gray-50 text-xs">
+                  Cancel
+                </button>
+                <button onClick={handleRejectTaskSubmit} disabled={!rejectionReason.trim()} className="flex-1 h-9 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-xs disabled:opacity-50">
+                  Reject Task
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Deadline Extension Modal ── */}
+      {extensionModalTask && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/60 backdrop-blur-sm p-4 animate-fadeIn">
+          <div className="bg-white border border-gray-200 rounded-3xl p-6 shadow-2xl max-w-md w-full space-y-4">
+            <div>
+              <h3 className="text-base font-extrabold text-gray-900">Request Deadline Extension</h3>
+              <p className="text-xs text-gray-500 mt-1">Request more time for task: <strong className="text-gray-700">"{extensionModalTask.task_title}"</strong>.</p>
+            </div>
+            <div className="space-y-3 text-xs font-semibold text-gray-700">
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-gray-400 uppercase">Suggested Due Date</label>
+                <input
+                  type="date"
+                  value={extensionDate}
+                  onChange={e => setExtensionDate(e.target.value)}
+                  required
+                  className="h-10 px-3 border border-gray-200 rounded-xl"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-gray-400 uppercase">Reason for Extension</label>
+                <textarea
+                  value={extensionReason}
+                  onChange={e => setExtensionReason(e.target.value)}
+                  placeholder="Explain why you need more time..."
+                  rows="3"
+                  className="w-full p-3 border border-gray-200 rounded-xl outline-none focus:border-indigo-400 font-sans"
+                />
+              </div>
+              <div className="flex gap-2 pt-2">
+                <button onClick={() => { setExtensionModalTask(null); setExtensionDate(''); setExtensionReason(''); }} className="flex-1 h-9 border border-gray-200 text-gray-600 font-bold rounded-xl hover:bg-gray-50">
+                  Cancel
+                </button>
+                <button onClick={handleRequestExtensionSubmit} disabled={!extensionDate || !extensionReason.trim()} className="flex-1 h-9 bg-[#4F6AF7] hover:bg-[#3d58e5] text-white font-bold rounded-xl disabled:opacity-50">
+                  Send Request
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Task Completion Feedback Form Modal ── */}
+      {selectedTaskForFeedback && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/60 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="bg-white border border-gray-200 rounded-3xl p-6 shadow-2xl max-w-lg w-full space-y-4 my-8">
+            <div className="border-b border-gray-100 pb-3 flex justify-between items-center">
+              <div>
+                <h3 className="text-base font-extrabold text-gray-900">Submit Task Completion</h3>
+                <p className="text-xs text-gray-500 mt-0.5">Please provide completion details for: <strong className="text-gray-700">"{selectedTaskForFeedback.task_title}"</strong></p>
+              </div>
+              <button onClick={() => setSelectedTaskForFeedback(null)} className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-100 text-gray-400 hover:text-gray-700">
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCompletionSubmit} className="space-y-4 text-xs font-semibold text-gray-700">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase">Completion Status</label>
+                  <select disabled className="h-10 px-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-500 cursor-not-allowed">
+                    <option value="Completed">Completed</option>
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase">Completion Date</label>
+                  <input
+                    type="date"
+                    value={completionForm.completion_date}
+                    onChange={e => setCompletionForm(p => ({ ...p, completion_date: e.target.value }))}
+                    required
+                    className="h-10 px-3 border border-gray-200 rounded-xl"
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-gray-400 uppercase">Total Hours Worked *</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  value={completionForm.hours_worked}
+                  onChange={e => setCompletionForm(p => ({ ...p, hours_worked: e.target.value }))}
+                  required
+                  placeholder="e.g. 12"
+                  className="h-10 px-3 border border-gray-200 rounded-xl"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-gray-400 uppercase">Work Summary *</label>
+                <textarea
+                  value={completionForm.work_summary}
+                  onChange={e => setCompletionForm(p => ({ ...p, work_summary: e.target.value }))}
+                  required
+                  placeholder="Summarize the work done, outcomes, and achievements..."
+                  rows="3"
+                  className="p-3 border border-gray-200 rounded-xl font-sans"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase">Challenges Faced</label>
+                  <textarea
+                    value={completionForm.challenges}
+                    onChange={e => setCompletionForm(p => ({ ...p, challenges: e.target.value }))}
+                    placeholder="Any blockages or difficulties encountered..."
+                    rows="2"
+                    className="p-3 border border-gray-200 rounded-xl font-sans"
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase">Suggestions</label>
+                  <textarea
+                    value={completionForm.suggestions}
+                    onChange={e => setCompletionForm(p => ({ ...p, suggestions: e.target.value }))}
+                    placeholder="Ideas for process improvement..."
+                    rows="2"
+                    className="p-3 border border-gray-200 rounded-xl font-sans"
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-gray-400 uppercase">Lessons Learned</label>
+                <textarea
+                  value={completionForm.lessons_learned}
+                  onChange={e => setCompletionForm(p => ({ ...p, lessons_learned: e.target.value }))}
+                  placeholder="Key takeaways or skills acquired..."
+                  rows="2"
+                  className="p-3 border border-gray-200 rounded-xl font-sans"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-gray-400 uppercase">Reference/Work File URLs</label>
+                {completionForm.file_urls.map((url, index) => (
+                  <div key={index} className="flex gap-2 items-center">
+                    <input
+                      type="url"
+                      value={url}
+                      onChange={e => {
+                        const next = [...completionForm.file_urls];
+                        next[index] = e.target.value;
+                        setCompletionForm(p => ({ ...p, file_urls: next }));
+                      }}
+                      placeholder="https://example.com/my-work-file"
+                      className="flex-1 h-10 px-3 border border-gray-200 rounded-xl"
+                    />
+                    {index === completionForm.file_urls.length - 1 ? (
+                      <button type="button" onClick={() => setCompletionForm(p => ({ ...p, file_urls: [...p.file_urls, ''] }))} className="px-3 h-10 bg-indigo-50 hover:bg-indigo-100 text-[#4F6AF7] rounded-xl font-bold">
+                        +
+                      </button>
+                    ) : (
+                      <button type="button" onClick={() => setCompletionForm(p => ({ ...p, file_urls: p.file_urls.filter((_, i) => i !== index) }))} className="px-3 h-10 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl font-bold">
+                        -
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-gray-400 uppercase">Additional Comments</label>
+                <textarea
+                  value={completionForm.additional_notes}
+                  onChange={e => setCompletionForm(p => ({ ...p, additional_notes: e.target.value }))}
+                  placeholder="Any other comments or feedback..."
+                  rows="2"
+                  className="p-3 border border-gray-200 rounded-xl font-sans"
+                />
+              </div>
+
+              <div className="flex items-center gap-3 pt-2">
+                <button type="button" onClick={() => setSelectedTaskForFeedback(null)} className="flex-1 h-10 border border-gray-200 text-gray-600 font-bold rounded-xl hover:bg-gray-50">
+                  Cancel
+                </button>
+                <button type="submit" className="flex-1 h-10 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-md flex items-center justify-center gap-1.5">
+                  Submit Completion
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
       {showFeedbackModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/60 backdrop-blur-sm p-4 animate-fadeIn">
           <div className="bg-white border border-gray-200 rounded-3xl p-6 shadow-2xl max-w-md w-full space-y-6">
