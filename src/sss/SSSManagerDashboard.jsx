@@ -114,6 +114,8 @@ export default function SSSManagerDashboard() {
   const [taskAssignments, setTaskAssignments] = useState([]);
   const [taskFeedback,    setTaskFeedback]    = useState([]);
   const [taskReviews,     setTaskReviews]     = useState([]);
+  const [taskProgress,    setTaskProgress]    = useState([]);   // sss_task_progress rows
+  const [taskReports,     setTaskReports]     = useState([]);   // task_status_report notifications
 
   /* ── Task UI state ── */
   const [taskSubTab,       setTaskSubTab]       = useState('Task List');
@@ -169,11 +171,13 @@ export default function SSSManagerDashboard() {
 
   const fetchTasks = async () => {
     try {
-      const [taskRes, assignRes, fbRes, revRes] = await Promise.all([
+      const [taskRes, assignRes, fbRes, revRes, progressRes, reportRes] = await Promise.all([
         supabase.from('sss_tasks').select('*').eq('company_id', SSS_CO).order('created_at', { ascending: false }),
         supabase.from('sss_task_assignments').select('*'),
         supabase.from('sss_task_feedback').select('*'),
         supabase.from('sss_task_reviews').select('*'),
+        supabase.from('sss_task_progress').select('*').order('created_at', { ascending: false }),
+        supabase.from('notifications').select('*').eq('company_id', SSS_CO).eq('type', 'task_status_report').order('created_at', { ascending: false }),
       ]);
 
       if (taskRes.error) console.error('Supabase tasks error:', taskRes.error);
@@ -185,6 +189,8 @@ export default function SSSManagerDashboard() {
       setTaskAssignments(assignRes.data || []);
       setTaskFeedback(fbRes.data    || []);
       setTaskReviews(revRes.data    || []);
+      setTaskProgress(progressRes.data || []);
+      setTaskReports(reportRes.data || []);
     } catch (e) {
       console.error('fetchTasks error:', e);
     }
@@ -1130,16 +1136,30 @@ export default function SSSManagerDashboard() {
                         <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
                           <div className="overflow-x-auto">
                             <table className="w-full text-sm">
-                              <TH cols={['Task ID','Title','Assigned To','Priority','Status','Due Date','Progress','Actions']} />
+                              <TH cols={['Task ID','Title','Assigned To','Priority','Status','Due Date','Progress','Accepted By','Actions']} />
                               <tbody className="divide-y divide-gray-50">
                                 {filteredTasks.map(task => {
                                   const overdue = task.due_date && task.due_date < today && !['Completed','Approved','Cancelled'].includes(task.status);
+                                  // Find acceptance record from task progress
+                                  const acceptanceRecord = taskProgress.find(p => p.task_id === task.id && p.note === 'Task Accepted');
+                                  // Find completion feedback
+                                  const fb = taskFeedback.find(f => f.task_id === task.id);
+                                  const rev = taskReviews.find(r => r.task_id === task.id);
+                                  // Find accepted report notification
+                                  const acceptedReport = taskReports.find(r => r.title && r.title.includes(task.task_title) && r.title.toLowerCase().includes('accepted'));
                                   return (
                                     <tr key={task.id} className="hover:bg-gray-50/50 transition-colors">
                                       <td className="py-3 px-4 font-mono text-[11px] text-gray-400">{task.id.slice(0,8).toUpperCase()}</td>
                                       <td className="py-3 px-4">
-                                        <p className="font-semibold text-gray-800 text-sm">{task.task_title}</p>
-                                        {task.project_name && <p className="text-[10px] text-gray-400">{task.project_name}</p>}
+                                        <div className="flex flex-col gap-0.5">
+                                          <p className="font-semibold text-gray-800 text-sm">{task.task_title}</p>
+                                          {task.project_name && <p className="text-[10px] text-gray-400">{task.project_name}</p>}
+                                          {['Accepted','In Progress','Paused','Completed','Approved'].includes(task.status) && (
+                                            <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 w-fit mt-0.5">
+                                              ✓ {task.status === 'Pending' ? 'Accepted' : task.status === 'Completed' ? 'Submitted' : 'Active'}
+                                            </span>
+                                          )}
+                                        </div>
                                       </td>
                                       <td className="py-3 px-4 text-xs text-gray-500 max-w-[120px] truncate">{taskAssigneeNames(task.id)}</td>
                                       <td className="py-3 px-4"><Badge label={task.priority} colorMap={PRIORITY_COLORS} /></td>
@@ -1158,11 +1178,26 @@ export default function SSSManagerDashboard() {
                                         </div>
                                       </td>
                                       <td className="py-3 px-4">
-                                        <div className="flex items-center gap-1">
+                                        {acceptanceRecord ? (
+                                          <div className="flex flex-col gap-0.5">
+                                            <span className="text-[10px] font-bold text-emerald-600">✓ Accepted</span>
+                                            <span className="text-[9px] text-gray-400">
+                                              {acceptanceRecord.created_at ? new Date(acceptanceRecord.created_at).toLocaleDateString('en-IN', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' }) : '—'}
+                                            </span>
+                                          </div>
+                                        ) : (
+                                          <span className="text-[10px] text-gray-300 italic">Not yet</span>
+                                        )}
+                                      </td>
+                                      <td className="py-3 px-4">
+                                        <div className="flex items-center gap-1 flex-wrap">
                                           <button onClick={() => openEditTask(task)} title="Edit" className="w-6 h-6 flex items-center justify-center rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"><Edit size={11}/></button>
                                           <button onClick={() => handleDuplicateTask(task)} title="Duplicate" className="w-6 h-6 flex items-center justify-center rounded-lg text-gray-400 hover:text-green-600 hover:bg-green-50 transition-colors"><Copy size={11}/></button>
                                           <button onClick={() => handleCancelTask(task.id)} title="Cancel" className="w-6 h-6 flex items-center justify-center rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-50 transition-colors"><XCircle size={11}/></button>
                                           <button onClick={() => handleDeleteTask(task.id)} title="Delete" className="w-6 h-6 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"><Trash2 size={11}/></button>
+                                          {fb && (
+                                            <button onClick={() => { setReviewingTask(task); setTaskSubTab('Completion Review'); }} title="View Report" className="w-6 h-6 flex items-center justify-center rounded-lg text-gray-400 hover:text-purple-600 hover:bg-purple-50 transition-colors"><Eye size={11}/></button>
+                                          )}
                                         </div>
                                       </td>
                                     </tr>

@@ -248,7 +248,7 @@ export default function SSSEmployeeDashboard() {
     await supabase.from('notifications').insert({
       company_id: company?.id,
       user_id: userId,
-      type: 'task_update',
+      type: 'task_status_report',
       title,
       body,
       is_read: false

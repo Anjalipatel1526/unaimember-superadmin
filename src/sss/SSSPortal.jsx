@@ -50,12 +50,17 @@ export default function SSSPortal() {
   const [taskAssignments, setTaskAssignments] = useState([]);
   const [taskFeedback, setTaskFeedback] = useState([]);
   const [taskReviews, setTaskReviews] = useState([]);
+  const [taskProgress, setTaskProgress] = useState([]);
   
   // Task Monitor filter states
   const [taskFilterStatus, setTaskFilterStatus] = useState('all');
   const [taskFilterEmployee, setTaskFilterEmployee] = useState('all');
   const [taskFilterDepartment, setTaskFilterDepartment] = useState('all');
   const [taskFilterSearch, setTaskFilterSearch] = useState('');
+
+  // Employee Performance Card (HR Task Monitor)
+  const [performanceEmpSearch, setPerformanceEmpSearch] = useState('');
+  const [selectedPerformanceEmp, setSelectedPerformanceEmp] = useState(null);
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -138,7 +143,9 @@ export default function SSSPortal() {
 
   const notificationCampaigns = useMemo(() => {
     const map = {};
-    notifications.forEach(n => {
+    // Filter out internal task status signals — only show HR-composed broadcasts
+    const broadcastOnly = notifications.filter(n => !['task_status_report', 'task_update'].includes(n.type));
+    broadcastOnly.forEach(n => {
       const timeKey = n.created_at ? new Date(n.created_at).toISOString().slice(0, 16) : 'unknown';
       const key = `${n.title}_${n.body}_${timeKey}`;
       if (!map[key]) {
@@ -293,16 +300,18 @@ export default function SSSPortal() {
       setNotifications(notifData || []);
 
       // 8. Fetch Tasks tables for Task Monitor
-      const [taskRes, assignRes, fbRes, revRes] = await Promise.all([
+      const [taskRes, assignRes, fbRes, revRes, progressRes] = await Promise.all([
         supabase.from('sss_tasks').select('*').eq('company_id', sssCompany.id).order('created_at', { ascending: false }),
         supabase.from('sss_task_assignments').select('*'),
         supabase.from('sss_task_feedback').select('*'),
         supabase.from('sss_task_reviews').select('*'),
+        supabase.from('sss_task_progress').select('*').order('created_at', { ascending: false }),
       ]);
       setTasks(taskRes.data || []);
       setTaskAssignments(assignRes.data || []);
       setTaskFeedback(fbRes.data || []);
       setTaskReviews(revRes.data || []);
+      setTaskProgress(progressRes.data || []);
 
     } catch (e) {
       console.error('Fetch error:', e);
@@ -2994,27 +3003,68 @@ export default function SSSPortal() {
 
                 {/* Employee Performance Overview */}
                 <div className="bg-white border border-gray-100 rounded-3xl shadow-sm p-6 space-y-4">
-                  <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">👤 Employee Performance</h3>
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">👤 Employee Performance</h3>
+                    <span className="text-[10px] text-gray-400">Click a row to view tasks</span>
+                  </div>
+                  {/* Search */}
+                  <div className="relative">
+                    <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      value={performanceEmpSearch}
+                      onChange={e => setPerformanceEmpSearch(e.target.value)}
+                      placeholder="Search employee…"
+                      className="w-full pl-8 pr-3 h-8 text-[11px] rounded-xl border border-gray-200 bg-gray-50 focus:outline-none focus:border-[#4F6AF7]"
+                    />
+                  </div>
                   <div className="overflow-x-auto max-h-[220px] overflow-y-auto">
                     <table className="w-full text-left text-xs border-collapse">
                       <thead>
                         <tr className="border-b border-gray-100 text-[10px] font-bold text-gray-400 uppercase">
                           <th className="py-2.5 px-3">Employee</th>
                           <th className="py-2.5 px-3 text-center">Total</th>
-                          <th className="py-2.5 px-3 text-center">Completed</th>
-                          <th className="py-2.5 px-3 text-center">Approved</th>
+                          <th className="py-2.5 px-3 text-center">Active</th>
+                          <th className="py-2.5 px-3 text-center">Done</th>
+                          <th className="py-2.5 px-3 text-center">Stage</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-50">
-                        {employees.map(emp => {
+                        {employees
+                          .filter(emp => {
+                            const name = `${emp.first_name} ${emp.last_name}`.toLowerCase();
+                            return !performanceEmpSearch || name.includes(performanceEmpSearch.toLowerCase());
+                          })
+                          .map(emp => {
                           const empAssigns = taskAssignments.filter(a => a.employee_id === emp.id);
                           const empTasks = tasks.filter(t => empAssigns.some(a => a.task_id === t.id));
+                          const activeTasks = empTasks.filter(t => ['Accepted','In Progress','Paused','Revision Required'].includes(t.status));
+                          const doneTasks = empTasks.filter(t => ['Completed','Approved'].includes(t.status));
+                          // Determine stage label from most recent task
+                          const latestTask = empTasks[0];
+                          const stageLabel = latestTask ? latestTask.status : '—';
+                          const stageColor = {
+                            'Pending': 'bg-gray-50 text-gray-500',
+                            'Accepted': 'bg-blue-50 text-blue-600',
+                            'In Progress': 'bg-indigo-50 text-indigo-600',
+                            'Paused': 'bg-amber-50 text-amber-600',
+                            'Completed': 'bg-teal-50 text-teal-600',
+                            'Approved': 'bg-green-50 text-green-600',
+                            'Rejected': 'bg-rose-50 text-rose-600',
+                            'Cancelled': 'bg-gray-100 text-gray-400',
+                          }[stageLabel] || 'bg-gray-50 text-gray-500';
                           return (
-                            <tr key={emp.id} className="hover:bg-gray-50/50">
+                            <tr
+                              key={emp.id}
+                              className="hover:bg-indigo-50/40 cursor-pointer transition-colors"
+                              onClick={() => setSelectedPerformanceEmp(emp)}
+                            >
                               <td className="py-2.5 px-3 font-semibold text-gray-800">{emp.first_name} {emp.last_name}</td>
                               <td className="py-2.5 px-3 text-center font-bold text-gray-600">{empTasks.length}</td>
-                              <td className="py-2.5 px-3 text-center text-teal-600 font-bold">{empTasks.filter(t=>t.status==='Completed').length}</td>
-                              <td className="py-2.5 px-3 text-center text-green-600 font-bold">{empTasks.filter(t=>t.status==='Approved').length}</td>
+                              <td className="py-2.5 px-3 text-center font-bold text-[#4F6AF7]">{activeTasks.length}</td>
+                              <td className="py-2.5 px-3 text-center text-green-600 font-bold">{doneTasks.length}</td>
+                              <td className="py-2.5 px-3">
+                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${stageColor}`}>{stageLabel}</span>
+                              </td>
                             </tr>
                           );
                         })}
@@ -3182,6 +3232,138 @@ export default function SSSPortal() {
 
       {/* ── MODALS ─────────────────────────────────────────────── */}
       
+      {/* 0. Employee Task Performance Detail Card (HR Task Monitor) */}
+      {selectedPerformanceEmp && (() => {
+        const emp = selectedPerformanceEmp;
+        const meta = getMetadata(emp);
+        const dept = departments.find(d => d.id === emp.department_id);
+        const empAssigns = taskAssignments.filter(a => a.employee_id === emp.id);
+        const empTasks = tasks.filter(t => empAssigns.some(a => a.task_id === t.id));
+        const empProgress = taskProgress.filter(p => p.employee_id === emp.id);
+        const empFeedback = taskFeedback.filter(f => f.employee_id === emp.id);
+        const acceptanceRecords = empProgress.filter(p => p.note === 'Task Accepted');
+        const totalTasks = empTasks.length;
+        const completedTasks = empTasks.filter(t => ['Completed','Approved'].includes(t.status)).length;
+        const activeTasks = empTasks.filter(t => ['Accepted','In Progress','Paused','Revision Required'].includes(t.status)).length;
+        const performanceScore = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+        
+        const pColors = {
+          Low: 'bg-green-50 text-green-700 border-green-100',
+          Medium: 'bg-amber-50 text-amber-700 border-amber-100',
+          High: 'bg-orange-50 text-orange-700 border-orange-100',
+          Critical: 'bg-red-50 text-red-700 border-red-100',
+        };
+        const sColors = {
+          'Pending': 'bg-gray-50 text-gray-600',
+          'Accepted': 'bg-blue-50 text-blue-700',
+          'In Progress': 'bg-indigo-50 text-indigo-700',
+          'Paused': 'bg-amber-50 text-amber-700',
+          'Completed': 'bg-teal-50 text-teal-700',
+          'Approved': 'bg-green-50 text-green-700',
+          'Rejected': 'bg-rose-50 text-rose-700',
+          'Cancelled': 'bg-gray-100 text-gray-400',
+        };
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-end bg-black/40 backdrop-blur-sm" onClick={() => setSelectedPerformanceEmp(null)}>
+            <div className="bg-white h-full sm:h-auto sm:max-h-[92vh] w-full sm:w-[520px] rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+              {/* Header */}
+              <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center bg-gradient-to-r from-[#4F6AF7]/5 to-indigo-50/30">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 bg-[#4F6AF7]/10 rounded-2xl flex items-center justify-center">
+                    <span className="text-lg font-extrabold text-[#4F6AF7]">{emp.first_name?.[0]}{emp.last_name?.[0]}</span>
+                  </div>
+                  <div>
+                    <h3 className="text-base font-extrabold text-gray-900">{emp.first_name} {emp.last_name}</h3>
+                    <p className="text-[11px] text-gray-400">{emp.designation || 'Employee'} · {dept?.name || '—'}</p>
+                  </div>
+                </div>
+                <button onClick={() => setSelectedPerformanceEmp(null)} className="p-2 rounded-xl text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors"><X size={16} /></button>
+              </div>
+
+              {/* Stats row */}
+              <div className="px-6 py-4 grid grid-cols-4 gap-3 border-b border-gray-100 bg-gray-50/50">
+                {[
+                  { label: 'Total', value: totalTasks, color: '#4F6AF7' },
+                  { label: 'Active', value: activeTasks, color: '#f59e0b' },
+                  { label: 'Done', value: completedTasks, color: '#10b981' },
+                  { label: 'Score', value: `${performanceScore}%`, color: performanceScore >= 75 ? '#10b981' : performanceScore >= 40 ? '#f59e0b' : '#ef4444' },
+                ].map(s => (
+                  <div key={s.label} className="text-center">
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">{s.label}</p>
+                    <p className="text-xl font-extrabold mt-0.5" style={{ color: s.color }}>{s.value}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Performance level */}
+              {meta.performance_status && (
+                <div className="px-6 py-3 border-b border-gray-100 flex items-center gap-2">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase">Performance Level:</span>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                    meta.performance_status === 'Excellent' ? 'bg-green-50 text-green-700' :
+                    meta.performance_status === 'Good' ? 'bg-blue-50 text-blue-700' :
+                    meta.performance_status === 'Average' ? 'bg-amber-50 text-amber-700' :
+                    'bg-red-50 text-red-700'
+                  }`}>{meta.performance_status}</span>
+                  {meta.performance_rating && <span className="text-[10px] text-amber-500 font-bold">⭐ {meta.performance_rating}/5</span>}
+                </div>
+              )}
+
+              {/* Task list */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-3">
+                <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Assigned Tasks ({empTasks.length})</h4>
+                {empTasks.length === 0 ? (
+                  <div className="text-center py-10 text-gray-300 italic text-xs">No tasks assigned yet</div>
+                ) : empTasks.map(task => {
+                  const accepted = acceptanceRecords.find(p => p.task_id === task.id);
+                  const fb = empFeedback.find(f => f.task_id === task.id);
+                  const todayStr = new Date().toISOString().split('T')[0];
+                  const isOverdue = task.due_date && task.due_date < todayStr && !['Completed','Approved','Cancelled'].includes(task.status);
+                  return (
+                    <div key={task.id} className="border border-gray-200 rounded-2xl p-4 space-y-2 hover:border-[#4F6AF7]/30 transition-colors">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-gray-900 text-xs truncate">{task.task_title}</p>
+                          {task.project_name && <p className="text-[10px] text-indigo-600 font-semibold">{task.project_name}</p>}
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 border rounded-full ${pColors[task.priority] || pColors.Medium}`}>{task.priority}</span>
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${sColors[task.status] || sColors.Pending}`}>{task.status}</span>
+                        </div>
+                      </div>
+                      
+                      {/* Progress bar */}
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 bg-gray-100 h-1.5 rounded-full overflow-hidden">
+                          <div className="h-full bg-[#4F6AF7] rounded-full transition-all" style={{ width: `${task.completion_pct || 0}%` }} />
+                        </div>
+                        <span className="text-[10px] font-bold text-gray-500">{task.completion_pct || 0}%</span>
+                      </div>
+
+                      {/* Meta row */}
+                      <div className="flex items-center justify-between text-[9px] text-gray-400">
+                        <span>📅 Due: <span className={`font-semibold ${isOverdue ? 'text-red-500' : 'text-gray-600'}`}>{task.due_date || '—'}{isOverdue ? ' ⚠️' : ''}</span></span>
+                        {accepted && <span className="text-emerald-600 font-bold">✓ Accepted {new Date(accepted.created_at).toLocaleDateString('en-IN', { day:'2-digit', month:'short' })}</span>}
+                      </div>
+
+                      {/* Completion feedback summary */}
+                      {fb && (
+                        <div className="bg-teal-50 border border-teal-100 rounded-xl p-2.5 mt-1">
+                          <p className="text-[9px] font-bold text-teal-700 uppercase tracking-wide mb-1">Completion Report</p>
+                          <p className="text-[10px] text-teal-800 line-clamp-2">{fb.work_summary || 'No summary provided.'}</p>
+                          {fb.hours_worked && <span className="text-[9px] text-teal-600 font-semibold">⏱ {fb.hours_worked}h logged</span>}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* 1. Modal: Add Employee / Manager / Team Lead */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
