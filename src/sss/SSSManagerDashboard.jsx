@@ -130,6 +130,8 @@ export default function SSSManagerDashboard() {
   const [reviewingTask,    setReviewingTask]    = useState(null);
   const [savingReview,     setSavingReview]     = useState(false);
   const [selectedEmpDetail, setSelectedEmpDetail] = useState(null); // for employee task card modal
+  const [empDetailTab, setEmpDetailTab] = useState('tasks'); // 'tasks' | 'leaves'
+  const [breakdownStatusDetails, setBreakdownStatusDetails] = useState(null); // holds status name like 'Accepted'
   const [deleteConfirm, setDeleteConfirm] = useState(null); // delete confirmation dialog state
 
   /* ── Alerts/Daily tab state ── */
@@ -1109,8 +1111,14 @@ export default function SSSManagerDashboard() {
                     <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
                       <h2 className="text-sm font-extrabold text-gray-900 mb-4">Task Status Breakdown</h2>
                       {STATUSES.filter(s => tasks.filter(t=>t.status===s).length > 0).map(s => (
-                        <div key={s} className="flex items-center justify-between py-2.5 border-b border-gray-50 last:border-0">
-                          <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full" style={{background: STATUS_COLORS[s]?.text||'#6b7280'}}/><span className="text-sm font-medium text-gray-700">{s}</span></div>
+                        <div key={s} 
+                          onClick={() => setBreakdownStatusDetails(s)}
+                          className="flex items-center justify-between py-2.5 border-b border-gray-50 last:border-0 cursor-pointer hover:bg-gray-50 px-2 rounded-lg -mx-2 transition-all"
+                          title={`Click to view ${s} tasks`}>
+                          <div className="flex items-center gap-2">
+                            <div className="w-2.5 h-2.5 rounded-full" style={{background: STATUS_COLORS[s]?.text||'#6b7280'}}/>
+                            <span className="text-sm font-medium text-gray-700 hover:text-[#4F6AF7] transition-colors">{s}</span>
+                          </div>
                           <span className="text-sm font-extrabold text-gray-900">{tasks.filter(t=>t.status===s).length}</span>
                         </div>
                       ))}
@@ -1161,23 +1169,8 @@ export default function SSSManagerDashboard() {
               {activeTab === 'Tasks' && (
                 <div className="space-y-5">
                   {/* Sub-tab nav (only when in list view) */}
-                  {taskView === 'list' && (
-                    <div className="flex items-center gap-2 bg-white border border-gray-100 rounded-2xl p-1.5 shadow-sm w-fit">
-                      {['Task List', 'Completion Review'].map(t => (
-                        <button key={t} onClick={() => setTaskSubTab(t)}
-                          className={`px-4 h-8 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 ${taskSubTab===t?'text-white':'text-gray-500 hover:bg-gray-50'}`}
-                          style={taskSubTab===t?{background:BRAND}:{}}>
-                          {t === 'Completion Review' && completedTasks.length > 0 && (
-                            <span className="w-4 h-4 flex items-center justify-center text-[9px] font-bold rounded-full" style={{ background: taskSubTab===t?'rgba(255,255,255,0.3)':'#ef4444', color:'white' }}>{completedTasks.length}</span>
-                          )}
-                          {t}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
                   {/* TASK LIST VIEW */}
-                  {taskView === 'list' && taskSubTab === 'Task List' && (
+                  {taskView === 'list' && (
                     <div className="space-y-4">
                       {/* Filters */}
                       <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex flex-col sm:flex-row gap-3">
@@ -1278,7 +1271,7 @@ export default function SSSManagerDashboard() {
                                           <button onClick={() => handleCancelTask(task.id)} title="Cancel" className="w-6 h-6 flex items-center justify-center rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-50 transition-colors"><XCircle size={11}/></button>
                                           <button onClick={() => handleDeleteTask(task.id)} title="Delete" className="w-6 h-6 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"><Trash2 size={11}/></button>
                                           {fb && (
-                                            <button onClick={() => { setReviewingTask(task); setTaskSubTab('Completion Review'); }} title="View Report" className="w-6 h-6 flex items-center justify-center rounded-lg text-gray-400 hover:text-purple-600 hover:bg-purple-50 transition-colors"><Eye size={11}/></button>
+                                            <button onClick={() => { setReviewingTask(task); setReviewForm({ decision: '', comments: '', rating: 5 }); }} title="View Report" className="w-6 h-6 flex items-center justify-center rounded-lg text-gray-400 hover:text-purple-600 hover:bg-purple-50 transition-colors"><Eye size={11}/></button>
                                           )}
                                         </div>
                                       </td>
@@ -1295,9 +1288,6 @@ export default function SSSManagerDashboard() {
 
                   {/* CREATE / EDIT FORM */}
                   {(taskView === 'create' || taskView === 'edit') && renderTaskFormPanel()}
-
-                  {/* COMPLETION REVIEW */}
-                  {taskView === 'list' && taskSubTab === 'Completion Review' && renderCompletionReviewPanel()}
                 </div>
               )}
             </>
@@ -1305,7 +1295,7 @@ export default function SSSManagerDashboard() {
         </div>
       </main>
 
-      {/* ── Employee Task Detail Card Modal (Completion Review) ── */}
+      {/* ── Employee Task Detail Card Modal (Completion Review & Leaves) ── */}
       {selectedEmpDetail && (() => {
         const emp = selectedEmpDetail;
         const dept = departments.find(d => d.id === emp.department_id);
@@ -1315,6 +1305,7 @@ export default function SSSManagerDashboard() {
         const empProgressRows = taskProgress.filter(p => p.employee_id === emp.id);
         const empFeedback = taskFeedback.filter(f => f.employee_id === emp.id);
         const acceptanceRecords = empProgressRows.filter(p => p.note === 'Task Accepted');
+        const empLeaves = leaves.filter(l => l.employee_id === emp.id);
         const totalT = empTasks.length;
         const doneT = empTasks.filter(t => ['Completed','Approved'].includes(t.status)).length;
         const activeT = empTasks.filter(t => ['Accepted','In Progress','Paused','Revision Required'].includes(t.status)).length;
@@ -1335,8 +1326,8 @@ export default function SSSManagerDashboard() {
         };
 
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setSelectedEmpDetail(null)}>
-            <div className="bg-white w-full max-w-[700px] max-h-[88vh] rounded-3xl shadow-2xl flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fadeIn" onClick={() => setSelectedEmpDetail(null)}>
+            <div className="bg-white w-full max-w-[700px] max-h-[88vh] rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-slideUp" onClick={e => e.stopPropagation()}>
               {/* Header */}
               <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center bg-gradient-to-r from-[#4F6AF7]/5 to-indigo-50/30">
                 <div className="flex items-center gap-3">
@@ -1380,50 +1371,279 @@ export default function SSSManagerDashboard() {
                 </div>
               )}
 
-              {/* Task list */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-3">
-                <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Assigned Tasks ({empTasks.length})</h4>
-                {empTasks.length === 0 ? (
-                  <div className="text-center py-12 text-gray-300 italic text-sm">No tasks assigned yet</div>
-                ) : empTasks.map(task => {
-                  const accepted = acceptanceRecords.find(p => p.task_id === task.id);
-                  const fb = empFeedback.find(f => f.task_id === task.id);
-                  const isOverdue = task.due_date && task.due_date < today && !['Completed','Approved','Cancelled'].includes(task.status);
-                  return (
-                    <div key={task.id} className="border border-gray-200 rounded-2xl p-4 space-y-2.5 hover:border-[#4F6AF7]/30 transition-colors">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <p className="font-bold text-gray-900 text-sm truncate">{task.task_title}</p>
-                          {task.project_name && <p className="text-[10px] text-indigo-600 font-semibold mt-0.5">{task.project_name}</p>}
+              {/* Modal Tabs Navigation */}
+              <div className="px-6 border-b border-gray-100 flex gap-4 bg-gray-50/20">
+                <button onClick={() => setEmpDetailTab('tasks')} className={`py-3 text-xs font-bold transition-all border-b-2 ${empDetailTab === 'tasks' ? 'border-[#4F6AF7] text-[#4F6AF7]' : 'border-transparent text-gray-400 hover:text-gray-650'}`}>
+                  Assigned Tasks ({empTasks.length})
+                </button>
+                <button onClick={() => setEmpDetailTab('leaves')} className={`py-3 text-xs font-bold transition-all border-b-2 ${empDetailTab === 'leaves' ? 'border-[#4F6AF7] text-[#4F6AF7]' : 'border-transparent text-gray-400 hover:text-gray-650'}`}>
+                  Leave Requests ({empLeaves.length})
+                </button>
+              </div>
+
+              {/* Tab: Tasks */}
+              {empDetailTab === 'tasks' && (
+                <div className="flex-1 overflow-y-auto p-6 space-y-3">
+                  <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Assigned Tasks ({empTasks.length})</h4>
+                  {empTasks.length === 0 ? (
+                    <div className="text-center py-12 text-gray-300 italic text-sm">No tasks assigned yet</div>
+                  ) : empTasks.map(task => {
+                    const accepted = acceptanceRecords.find(p => p.task_id === task.id);
+                    const fb = empFeedback.find(f => f.task_id === task.id);
+                    const isOverdue = task.due_date && task.due_date < today && !['Completed','Approved','Cancelled'].includes(task.status);
+                    return (
+                      <div key={task.id} className="border border-gray-200 rounded-2xl p-4 space-y-2.5 hover:border-[#4F6AF7]/30 transition-colors">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-bold text-gray-900 text-sm truncate">{task.task_title}</p>
+                            {task.project_name && <p className="text-[10px] text-indigo-600 font-semibold mt-0.5">{task.project_name}</p>}
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${pColors[task.priority] || pColors.Medium}`}>{task.priority}</span>
+                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${sColors[task.status] || sColors.Pending}`}>{task.status}</span>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${pColors[task.priority] || pColors.Medium}`}>{task.priority}</span>
-                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${sColors[task.status] || sColors.Pending}`}>{task.status}</span>
+                        {/* Progress bar */}
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 bg-gray-100 h-1.5 rounded-full overflow-hidden">
+                            <div className="h-full rounded-full transition-all" style={{ width: `${task.completion_pct || 0}%`, background: BRAND }} />
+                          </div>
+                          <span className="text-[10px] font-bold text-gray-500">{task.completion_pct || 0}%</span>
+                        </div>
+                        {/* Meta */}
+                        <div className="flex items-center justify-between text-[9px] text-gray-400">
+                          <span>📅 Due: <span className={`font-semibold ${isOverdue ? 'text-red-500' : 'text-gray-600'}`}>{task.due_date || '—'}{isOverdue ? ' ⚠️' : ''}</span></span>
+                          {accepted && <span className="text-emerald-600 font-bold">✓ Accepted {new Date(accepted.created_at).toLocaleDateString('en-IN', { day:'2-digit', month:'short' })}</span>}
+                        </div>
+                        {/* Completion feedback */}
+                        {fb && (
+                          <div className="bg-teal-50 border border-teal-100 rounded-xl p-3 mt-1">
+                            <p className="text-[9px] font-bold text-teal-700 uppercase tracking-wide mb-1">Completion Report</p>
+                            <p className="text-[10px] text-teal-800 line-clamp-2">{fb.work_summary || 'No summary provided.'}</p>
+                            {fb.hours_worked && <span className="text-[9px] text-teal-600 font-semibold">⏱ {fb.hours_worked}h logged</span>}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Tab: Leaves */}
+              {empDetailTab === 'leaves' && (
+                <div className="flex-1 overflow-y-auto p-6 space-y-3.5">
+                  <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Leave History & Requests ({empLeaves.length})</h4>
+                  {empLeaves.length === 0 ? (
+                    <div className="text-center py-12 text-gray-300 italic text-sm">No leave requests found for this employee</div>
+                  ) : empLeaves.map(leave => (
+                    <div key={leave.id} className="border border-gray-200 rounded-2xl p-4 space-y-3 hover:border-[#4F6AF7]/30 transition-all bg-gray-50/20">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-gray-800">{leave.leave_type}</span>
+                        <Badge label={leave.status} colorMap={STATUS_COLORS} />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-[10px] text-gray-500 bg-white p-2.5 rounded-xl border border-gray-100">
+                        <div>
+                          <span className="text-gray-400">From Date</span>
+                          <p className="font-bold mt-0.5 text-gray-700">{leave.start_date}</p>
+                        </div>
+                        <div>
+                          <span className="text-gray-400">To Date</span>
+                          <p className="font-bold mt-0.5 text-gray-700">{leave.end_date}</p>
                         </div>
                       </div>
-                      {/* Progress bar */}
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 bg-gray-100 h-1.5 rounded-full overflow-hidden">
-                          <div className="h-full rounded-full transition-all" style={{ width: `${task.completion_pct || 0}%`, background: BRAND }} />
+                      {leave.reason && (
+                        <div className="bg-white p-2.5 rounded-xl border border-gray-100">
+                          <span className="text-[8px] font-bold text-gray-400 uppercase">Reason</span>
+                          <p className="text-[11px] text-gray-650 leading-relaxed mt-0.5">{leave.reason}</p>
                         </div>
-                        <span className="text-[10px] font-bold text-gray-500">{task.completion_pct || 0}%</span>
-                      </div>
-                      {/* Meta */}
-                      <div className="flex items-center justify-between text-[9px] text-gray-400">
-                        <span>📅 Due: <span className={`font-semibold ${isOverdue ? 'text-red-500' : 'text-gray-600'}`}>{task.due_date || '—'}{isOverdue ? ' ⚠️' : ''}</span></span>
-                        {accepted && <span className="text-emerald-600 font-bold">✓ Accepted {new Date(accepted.created_at).toLocaleDateString('en-IN', { day:'2-digit', month:'short' })}</span>}
-                      </div>
-                      {/* Completion feedback */}
-                      {fb && (
-                        <div className="bg-teal-50 border border-teal-100 rounded-xl p-3 mt-1">
-                          <p className="text-[9px] font-bold text-teal-700 uppercase tracking-wide mb-1">Completion Report</p>
-                          <p className="text-[10px] text-teal-800 line-clamp-2">{fb.work_summary || 'No summary provided.'}</p>
-                          {fb.hours_worked && <span className="text-[9px] text-teal-600 font-semibold">⏱ {fb.hours_worked}h logged</span>}
+                      )}
+                      
+                      {/* Action buttons if Pending */}
+                      {leave.status === 'Pending' && (
+                        <div className="flex justify-end gap-2 pt-1 border-t border-gray-50">
+                          <button onClick={() => handleLeaveAction(leave.id, 'Rejected')} className="h-8 px-3 text-[10px] font-bold text-red-650 hover:bg-red-50 border border-red-200 rounded-lg transition-all">Reject</button>
+                          <button onClick={() => handleLeaveAction(leave.id, 'Approved')} className="h-8 px-3 text-[10px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-all">Approve</button>
                         </div>
                       )}
                     </div>
-                  );
-                })}
+                  ))}
+                </div>
+              )}
+
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── Task Review Modal ──────────────────────────── */}
+      {reviewingTask && (() => {
+        const task = reviewingTask;
+        const fb = taskFeedback.find(f => f.task_id === task.id);
+        const rv = taskReviews.find(r => r.task_id === task.id);
+        
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fadeIn" onClick={() => setReviewingTask(null)}>
+            <div className="bg-white w-full max-w-[650px] max-h-[85vh] rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-slideUp" onClick={e => e.stopPropagation()}>
+              {/* Header */}
+              <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center bg-gradient-to-r from-[#4F6AF7]/5 to-indigo-50/30">
+                <div>
+                  <h3 className="text-base font-extrabold text-gray-900">Task Completion Review</h3>
+                  <p className="text-[11px] text-gray-400 mt-0.5">Review details of task "{task.task_title}"</p>
+                </div>
+                <button onClick={() => setReviewingTask(null)} className="p-2 rounded-xl text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors"><X size={18} /></button>
+              </div>
+
+              {/* Scrollable Content */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                {/* Task info */}
+                <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className="text-[10px] font-bold text-gray-400 font-mono">{task.id.slice(0,8).toUpperCase()}</span>
+                    <Badge label={task.priority} colorMap={PRIORITY_COLORS} />
+                    <Badge label={task.status}   colorMap={STATUS_COLORS}   />
+                  </div>
+                  <h4 className="font-extrabold text-gray-800 text-sm">{task.task_title}</h4>
+                  {task.project_name && <p className="text-[10px] text-indigo-600 font-semibold mt-1">📁 {task.project_name}</p>}
+                </div>
+
+                {/* Submission Form Details */}
+                {fb ? (
+                  <div className="bg-white rounded-2xl border-2 border-dashed border-indigo-100 p-5 space-y-4">
+                    <div className="border-b border-gray-100 pb-2">
+                      <h5 className="text-xs font-black text-indigo-700 uppercase tracking-widest">📋 Completion Report</h5>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <div className="bg-gray-50 rounded-xl p-2.5 border border-gray-100">
+                        <span className="text-[8px] font-bold text-gray-400 uppercase">📅 Date Completed</span>
+                        <p className="text-xs font-bold text-gray-800 mt-0.5">{fb.completion_date || '—'}</p>
+                      </div>
+                      <div className="bg-gray-50 rounded-xl p-2.5 border border-gray-100">
+                        <span className="text-[8px] font-bold text-gray-400 uppercase">⏱️ Hours Worked</span>
+                        <p className="text-xs font-bold text-gray-800 mt-0.5">{fb.hours_worked ? `${fb.hours_worked} hrs` : '—'}</p>
+                      </div>
+                    </div>
+                    {fb.work_summary && (
+                      <div className="bg-gray-50/50 p-3.5 rounded-xl border border-gray-100">
+                        <span className="text-[8px] font-bold text-gray-400 uppercase block mb-1">Deliverables & Summary</span>
+                        <p className="text-xs text-gray-700 leading-relaxed">{fb.work_summary}</p>
+                      </div>
+                    )}
+                    {fb.challenges && (
+                      <div className="bg-rose-50/20 p-3 rounded-xl border border-rose-100/30">
+                        <span className="text-[8px] font-bold text-rose-500 uppercase block mb-1">Challenges</span>
+                        <p className="text-xs text-gray-655 leading-relaxed">{fb.challenges}</p>
+                      </div>
+                    )}
+                    {fb.file_urls?.length > 0 && (
+                      <div className="space-y-1.5">
+                        <span className="text-[8px] font-bold text-gray-400 uppercase block">Reference Evidence/Files</span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {fb.file_urls.filter(Boolean).map((url, i) => (
+                            <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 px-2.5 py-1.5 bg-indigo-50 hover:bg-[#4F6AF7] hover:text-white rounded-lg text-[10px] font-bold text-[#4F6AF7] transition-all">
+                              <FileText size={10} /> Evidence #{i + 1}
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="p-4 bg-amber-50 rounded-xl border border-amber-100 text-xs text-amber-700 font-medium">
+                    ⚠️ Employee has not submitted a formal completion report.
+                  </div>
+                )}
+
+                {/* Review Form */}
+                {!rv ? (
+                  <div className="p-4 bg-indigo-50/30 rounded-2xl border border-indigo-100/50 space-y-4">
+                    <div>
+                      <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-2">Decision *</label>
+                      <div className="flex gap-2">
+                        {['Approved','Rejected','Revision Required'].map(d => (
+                          <button key={d} onClick={() => setReviewForm(p => ({ ...p, decision: d }))}
+                            className={`px-3.5 h-8 text-[11px] font-bold rounded-xl border transition-all ${reviewForm.decision === d ? 'text-white border-transparent' : 'border-gray-200 text-gray-650 bg-white hover:bg-gray-50'}`}
+                            style={reviewForm.decision === d ? { background: d === 'Approved' ? '#059669' : d === 'Rejected' ? '#dc2626' : '#9333ea' } : {}}>
+                            {d === 'Approved' ? '✅' : d === 'Rejected' ? '❌' : '🔄'} {d}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-1.5">Employee Rating</label>
+                      <StarRating value={reviewForm.rating} onChange={v => setReviewForm(p => ({ ...p, rating: v }))} />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-1.5">Comments & Instructions</label>
+                      <textarea value={reviewForm.comments} onChange={e => setReviewForm(p => ({ ...p, comments: e.target.value }))}
+                        placeholder="Feedback or revision instructions..." rows={2}
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-gray-200 focus:outline-none focus:border-indigo-400 bg-white resize-none" />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-xl space-y-2">
+                    <span className="text-[8px] font-bold text-emerald-700 uppercase">Review Logged</span>
+                    <div className="flex items-center gap-4">
+                      <div className="flex gap-0.5">
+                        {[1,2,3,4,5].map(n => <Star key={n} size={12} fill={n <= (rv.employee_rating||0) ? '#f59e0b' : 'none'} color={n <= (rv.employee_rating||0) ? '#f59e0b' : '#d1d5db'} />)}
+                      </div>
+                      <p className="text-xs text-gray-700 font-medium">{rv.manager_comments || 'No comments'}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-2">
+                <button onClick={() => setReviewingTask(null)} className="h-9 px-4 text-xs font-semibold rounded-xl border border-gray-200 text-gray-650 hover:bg-gray-100 transition-colors">Cancel</button>
+                {!rv && (
+                  <button onClick={handleReviewTask} disabled={savingReview || !reviewForm.decision} className="h-9 px-5 text-xs font-bold text-white rounded-xl flex items-center gap-1.5 transition-colors disabled:opacity-50" style={{ background: BRAND }}>
+                    {savingReview ? <RefreshCw size={12} className="animate-spin" /> : <Send size={12} />}
+                    Submit Decision
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── Status Breakdown Details Modal ──────────────────────────── */}
+      {breakdownStatusDetails && (() => {
+        const status = breakdownStatusDetails;
+        const statusTasks = tasks.filter(t => t.status === status);
+        
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fadeIn" onClick={() => setBreakdownStatusDetails(null)}>
+            <div className="bg-white w-full max-w-md max-h-[75vh] rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-slideUp" onClick={e => e.stopPropagation()}>
+              {/* Header */}
+              <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center bg-gradient-to-r from-[#4F6AF7]/5 to-indigo-50/30">
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900 capitalize">{status} Tasks</h3>
+                  <p className="text-[10px] text-gray-400 mt-0.5">Tasks currently marked as {status}</p>
+                </div>
+                <button onClick={() => setBreakdownStatusDetails(null)} className="p-1.5 rounded-xl text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors"><X size={16} /></button>
+              </div>
+
+              {/* Task list */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-3.5">
+                {statusTasks.length === 0 ? (
+                  <p className="text-xs text-gray-400 italic text-center py-6">No tasks under this status</p>
+                ) : statusTasks.map(t => (
+                  <div key={t.id} className="border border-gray-200 rounded-2xl p-4 hover:border-[#4F6AF7]/30 transition-all bg-gray-50/30">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <h4 className="text-xs font-bold text-gray-800 leading-snug">{t.task_title}</h4>
+                        {t.project_name && <p className="text-[9px] text-[#4F6AF7] font-semibold mt-0.5">📁 {t.project_name}</p>}
+                      </div>
+                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${PRIORITY_COLORS[t.priority] || 'bg-gray-50 text-gray-655'}`}>{t.priority}</span>
+                    </div>
+
+                    <div className="mt-3 pt-2.5 border-t border-gray-100 flex justify-between items-center text-[10px]">
+                      <span className="text-gray-400">Assigned To:</span>
+                      <span className="font-bold text-gray-700 text-right max-w-[180px] truncate">{taskAssigneeNames(t.id)}</span>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
