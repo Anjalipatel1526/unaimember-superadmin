@@ -12,7 +12,7 @@ import { supabase as supabaseAnon, supabaseAdmin } from '../services/supabase';
 const supabase = supabaseAdmin || supabaseAnon;
 const BRAND  = '#4F6AF7';
 const BRAND2 = '#6D84FF';
-const SSS_CO = 'e5396e43-28b3-455f-b75c-afb8e5b1fe43';
+let SSS_CO = '593164de-58d8-4e10-992a-fb0f9382cf42';
 
 const NAV = [
   { name: 'Dashboard',    icon: LayoutDashboard },
@@ -140,6 +140,11 @@ export default function SSSManagerDashboard() {
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
+      const { data: coData } = await supabase.from('companies').select('id').ilike('name', '%story%seed%').maybeSingle();
+      if (coData) {
+        SSS_CO = coData.id;
+      }
+
       const [empRes, deptRes, attRes, lvRes] = await Promise.all([
         supabase.from('employees').select('*').eq('company_id', SSS_CO),
         supabase.from('departments').select('*').eq('company_id', SSS_CO),
@@ -613,51 +618,76 @@ export default function SSSManagerDashboard() {
 
             {/* Employee submission */}
             {fb ? (
-              <div className="p-5 bg-gray-50/50 border-b border-gray-100">
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Employee Submission</p>
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-                  {[
-                    { label: 'Completion Date', value: fb.completion_date || '—' },
-                    { label: 'Hours Worked',    value: fb.hours_worked ? `${fb.hours_worked}h` : '—' },
-                    { label: 'Submitted',       value: new Date(fb.submitted_at).toLocaleDateString('en-IN') },
-                    { label: 'Status',          value: 'Submitted ✓' },
-                  ].map(({ label, value }) => (
-                    <div key={label} className="bg-white rounded-xl p-3 border border-gray-100">
-                      <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">{label}</p>
-                      <p className="text-xs font-bold text-gray-800 mt-0.5">{value}</p>
-                    </div>
-                  ))}
-                </div>
-                {fb.work_summary && (
-                  <div className="mb-3">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Work Summary</p>
-                    <p className="text-xs text-gray-700 leading-relaxed bg-white p-3 rounded-xl border border-gray-100">{fb.work_summary}</p>
+              <div className="p-6 bg-gradient-to-br from-gray-50 to-indigo-50/20 border-b border-gray-100">
+                <div className="bg-white rounded-3xl border-2 border-dashed border-indigo-150 p-6 shadow-sm space-y-5 relative">
+                  
+                  {/* Decorative stamp-like badge */}
+                  <div className="absolute top-4 right-4 bg-indigo-50 border border-indigo-150 rounded-2xl px-3 py-1.5 flex flex-col items-center justify-center shrink-0">
+                    <span className="text-[8px] font-extrabold text-indigo-400 uppercase tracking-widest leading-none">Task Performance</span>
+                    <span className="text-[10px] font-black text-indigo-700 mt-1 uppercase leading-none">Final Report</span>
                   </div>
-                )}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-                  {fb.challenges && (
-                    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Challenges</p><p className="text-xs text-gray-600 bg-white p-2.5 rounded-xl border border-gray-100">{fb.challenges}</p></div>
+
+                  <div className="border-b border-gray-100 pb-3">
+                    <h4 className="text-xs font-black text-indigo-700 uppercase tracking-widest">📋 Employee Task Completion Report Card</h4>
+                    <p className="text-[10px] text-gray-400 mt-0.5">Formal submission record for project assignment review</p>
+                  </div>
+
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                    {[
+                      { label: 'Date Completed', value: fb.completion_date || '—', icon: '📅' },
+                      { label: 'Hours Worked',    value: fb.hours_worked ? `${fb.hours_worked} hrs` : '—', icon: '⏱️' },
+                      { label: 'Time Submitted',  value: new Date(fb.submitted_at).toLocaleDateString('en-IN') + ' ' + new Date(fb.submitted_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }), icon: '📥' },
+                      { label: 'Review Status',   value: task.status, icon: '🏷️' },
+                    ].map(({ label, value, icon }) => (
+                      <div key={label} className="bg-gray-50/50 rounded-xl p-3 border border-gray-100">
+                        <p className="text-[8px] font-extrabold text-gray-400 uppercase tracking-widest">{icon} {label}</p>
+                        <p className="text-xs font-bold text-gray-800 mt-1">{value}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {fb.work_summary && (
+                    <div className="bg-gray-50/40 p-4 rounded-2xl border border-gray-100/50">
+                      <span className="text-[9px] font-extrabold text-gray-400 uppercase tracking-widest block mb-1.5">📝 Deliverables & Work Summary</span>
+                      <p className="text-xs text-gray-700 leading-relaxed font-medium">{fb.work_summary}</p>
+                    </div>
                   )}
-                  {fb.suggestions && (
-                    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Suggestions</p><p className="text-xs text-gray-600 bg-white p-2.5 rounded-xl border border-gray-100">{fb.suggestions}</p></div>
-                  )}
-                  {fb.lessons_learned && (
-                    <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Lessons Learned</p><p className="text-xs text-gray-600 bg-white p-2.5 rounded-xl border border-gray-100">{fb.lessons_learned}</p></div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    {fb.challenges && (
+                      <div className="bg-rose-50/30 p-3.5 rounded-2xl border border-rose-100/40">
+                        <span className="text-[9px] font-extrabold text-rose-500 uppercase tracking-widest block mb-1">⚠️ Challenges Encountered</span>
+                        <p className="text-xs text-gray-600 leading-relaxed font-medium">{fb.challenges}</p>
+                      </div>
+                    )}
+                    {fb.suggestions && (
+                      <div className="bg-emerald-50/30 p-3.5 rounded-2xl border border-emerald-100/40">
+                        <span className="text-[9px] font-extrabold text-emerald-600 uppercase tracking-widest block mb-1">💡 Suggestions & Recommendations</span>
+                        <p className="text-xs text-gray-600 leading-relaxed font-medium">{fb.suggestions}</p>
+                      </div>
+                    )}
+                    {fb.lessons_learned && (
+                      <div className="bg-indigo-50/30 p-3.5 rounded-2xl border border-indigo-100/40">
+                        <span className="text-[9px] font-extrabold text-indigo-600 uppercase tracking-widest block mb-1">🧠 Key Lessons Learned</span>
+                        <p className="text-xs text-gray-600 leading-relaxed font-medium">{fb.lessons_learned}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {fb.file_urls?.length > 0 && (
+                    <div className="pt-2">
+                      <span className="text-[9px] font-extrabold text-gray-400 uppercase tracking-widest block mb-2">📂 Uploaded Reference Files & Evidence</span>
+                      <div className="flex flex-wrap gap-2">
+                        {fb.file_urls.filter(Boolean).map((url, i) => (
+                          <a key={i} href={url} target="_blank" rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 px-3 py-2 bg-indigo-50/50 hover:bg-[#4F6AF7] hover:text-white border border-indigo-100 rounded-xl text-xs font-bold text-[#4F6AF7] transition-all">
+                            <FileText size={12} /> Deliverable Evidence #{i + 1}
+                          </a>
+                        ))}
+                      </div>
+                    </div>
                   )}
                 </div>
-                {fb.file_urls?.length > 0 && (
-                  <div className="mt-3">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Uploaded Files</p>
-                    <div className="flex flex-wrap gap-2">
-                      {fb.file_urls.filter(Boolean).map((url, i) => (
-                        <a key={i} href={url} target="_blank" rel="noopener noreferrer"
-                          className="flex items-center gap-1 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-medium text-indigo-600 hover:bg-indigo-50 transition-colors">
-                          <FileText size={11} /> File {i + 1}
-                        </a>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
             ) : (
               <div className="p-4 bg-amber-50 border-b border-amber-100">

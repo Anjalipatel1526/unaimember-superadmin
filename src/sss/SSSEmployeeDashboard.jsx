@@ -1732,6 +1732,20 @@ export default function SSSEmployeeDashboard() {
                                 Request Delay
                               </button>
                             )}
+                            <button onClick={async () => {
+                              if (window.confirm('Are you sure you want to delete this task?')) {
+                                try {
+                                  const { error } = await supabase.from('sss_tasks').delete().eq('id', task.id);
+                                  if (error) throw error;
+                                  alert('Task deleted successfully!');
+                                  await fetchEmployeeTasks(selectedEmployee.id, company.id);
+                                } catch (err) {
+                                  alert('Failed to delete task: ' + err.message);
+                                }
+                              }
+                            }} className="h-8 px-2 bg-rose-50 hover:bg-rose-100 text-rose-600 text-[10px] font-bold rounded-xl flex items-center justify-center transition-colors">
+                              Delete
+                            </button>
                           </div>
                         </div>
 
