@@ -3075,6 +3075,7 @@ export default function SSSPortal() {
                         <th className="py-3 px-4">Due Date</th>
                         <th className="py-3 px-4">Progress</th>
                         <th className="py-3 px-4 text-center">Feedback</th>
+                        <th className="py-3 px-4 text-center">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
@@ -3123,6 +3124,22 @@ export default function SSSPortal() {
                                   alert(msg);
                                 }} className="text-[#4F6AF7] hover:underline font-bold text-[10px]">View Feedback</button>
                               ) : <span className="text-gray-300">—</span>}
+                            </td>
+                            <td className="py-3 px-4 text-center">
+                              <button onClick={async () => {
+                                if (window.confirm('Are you sure you want to delete this task from the system?')) {
+                                  try {
+                                    const { error } = await supabase.from('sss_tasks').delete().eq('id', t.id);
+                                    if (error) throw error;
+                                    alert('Task deleted successfully!');
+                                    fetchData();
+                                  } catch (err) {
+                                    alert('Failed to delete task: ' + err.message);
+                                  }
+                                }
+                              }} className="text-red-500 hover:text-red-700 font-bold text-[10px] flex items-center justify-center gap-1 mx-auto">
+                                <Trash2 size={12} /> Delete
+                              </button>
                             </td>
                           </tr>
                         );

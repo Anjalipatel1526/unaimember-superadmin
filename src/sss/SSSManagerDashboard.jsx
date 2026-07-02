@@ -121,6 +121,7 @@ export default function SSSManagerDashboard() {
   const [selectedTask,     setSelectedTask]     = useState(null);
   const [taskForm,         setTaskForm]         = useState(DEFAULT_TASK);
   const [selectedAssignees,setSelectedAssignees]= useState([]);
+  const [assignmentMode,   setAssignmentMode]   = useState('single'); // 'single' | 'all'
   const [savingTask,       setSavingTask]       = useState(false);
   const [taskFilters,      setTaskFilters]      = useState({ status: 'all', priority: 'all', search: '' });
   const [reviewForm,       setReviewForm]       = useState({ decision: '', comments: '', rating: 5 });
@@ -140,9 +141,9 @@ export default function SSSManagerDashboard() {
     setLoading(true);
     try {
       const [empRes, deptRes, attRes, lvRes] = await Promise.all([
-        supabase.from('sss_employees').select('*').eq('company_id', SSS_CO),
-        supabase.from('sss_departments').select('*').eq('company_id', SSS_CO),
-        supabase.from('attendance_logs').select('*').eq('company_id', SSS_CO),
+        supabase.from('employees').select('*').eq('company_id', SSS_CO),
+        supabase.from('departments').select('*').eq('company_id', SSS_CO),
+        supabase.from('attendance').select('*').eq('company_id', SSS_CO),
         supabase.from('leave_requests').select('*').eq('company_id', SSS_CO),
       ]);
       setEmployees(empRes.data  || []);
@@ -197,8 +198,6 @@ export default function SSSManagerDashboard() {
 
   const handleCreateTask = async () => {
     if (!taskForm.task_title.trim()) return;
-    const titleWordCount = taskForm.task_title.trim().split(/\s+/).filter(Boolean).length;
-    if (titleWordCount < 5) return;
     setSavingTask(true);
     try {
       const { data: newTask } = await supabase.from('sss_tasks').insert({
@@ -227,8 +226,6 @@ export default function SSSManagerDashboard() {
 
   const handleUpdateTask = async () => {
     if (!selectedTask) return;
-    const titleWordCount = taskForm.task_title.trim().split(/\s+/).filter(Boolean).length;
-    if (titleWordCount < 5) return;
     setSavingTask(true);
     try {
       await supabase.from('sss_tasks').update({
@@ -278,6 +275,7 @@ export default function SSSManagerDashboard() {
     });
     const assigned = taskAssignments.filter(a => a.task_id === task.id).map(a => a.employee_id);
     setSelectedAssignees(assigned);
+    setAssignmentMode(assigned.length > 1 ? 'all' : 'single');
     setTaskView('edit');
   };
 
@@ -403,12 +401,9 @@ export default function SSSManagerDashboard() {
       <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Task Title */}
         <div className="lg:col-span-2">
-          <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-1.5">Task Title * (Minimum 5 words)</label>
+          <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-1.5">Task Title *</label>
           <input value={taskForm.task_title} onChange={e => setTaskForm(p => ({ ...p, task_title: e.target.value }))}
-            placeholder="Enter task title (must be at least 5 words)…" className="w-full h-10 px-4 text-sm rounded-xl border border-gray-200 focus:outline-none focus:border-indigo-400" />
-          {taskForm.task_title.trim() && taskForm.task_title.trim().split(/\s+/).filter(Boolean).length < 5 && (
-            <p className="text-[10px] text-red-500 font-bold mt-1">⚠️ Task title must have a minimum of 5 words (current: {taskForm.task_title.trim().split(/\s+/).filter(Boolean).length})</p>
-          )}
+            placeholder="Enter task title…" className="w-full h-10 px-4 text-sm rounded-xl border border-gray-200 focus:outline-none focus:border-indigo-400" />
         </div>
 
         {/* Description */}
@@ -502,31 +497,48 @@ export default function SSSManagerDashboard() {
 
         {/* Employee Assignment */}
         <div className="lg:col-span-2">
-          <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-1.5">Assign Employees</label>
-          <div className="border border-gray-200 rounded-xl overflow-hidden">
-            <div className="bg-gray-50 px-4 py-2 flex items-center justify-between border-b border-gray-100">
-              <span className="text-xs text-gray-500 font-medium">{selectedAssignees.length} employee(s) selected</span>
-              <div className="flex gap-2">
-                <button onClick={() => setSelectedAssignees(employees.map(e => e.id))}
-                  className="text-[10px] font-semibold text-indigo-600 hover:text-indigo-800">Assign All</button>
-                <button onClick={() => setSelectedAssignees([])}
-                  className="text-[10px] font-semibold text-gray-400 hover:text-gray-600">Clear</button>
-              </div>
-            </div>
-            <div className="max-h-36 overflow-y-auto p-2 grid grid-cols-2 gap-1">
-              {employees.filter(e => e.is_active).map(emp => (
-                <label key={emp.id} className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-all ${selectedAssignees.includes(emp.id) ? 'bg-indigo-50 border border-indigo-100' : 'hover:bg-gray-50 border border-transparent'}`}>
-                  <input type="checkbox" checked={selectedAssignees.includes(emp.id)}
-                    onChange={e => setSelectedAssignees(prev => e.target.checked ? [...prev, emp.id] : prev.filter(id => id !== emp.id))}
-                    className="w-3.5 h-3.5 rounded accent-indigo-600" />
-                  <div className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 text-[9px] font-black shrink-0">
-                    {emp.first_name?.[0]}{emp.last_name?.[0]}
-                  </div>
-                  <span className="text-xs font-medium text-gray-700 truncate">{emp.first_name} {emp.last_name}</span>
-                </label>
-              ))}
-            </div>
+          <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2">Assign Employees</label>
+          <div className="flex gap-4 mb-3">
+            <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer text-gray-700">
+              <input type="radio" name="assignmentMode" checked={assignmentMode === 'single'} 
+                onChange={() => {
+                  setAssignmentMode('single');
+                  setSelectedAssignees([]);
+                }} className="accent-[#4F6AF7]" />
+              Single Employee
+            </label>
+            <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer text-gray-700">
+              <input type="radio" name="assignmentMode" checked={assignmentMode === 'all'} 
+                onChange={() => {
+                  setAssignmentMode('all');
+                  setSelectedAssignees(employees.filter(e => e.is_active).map(e => e.id));
+                }} className="accent-[#4F6AF7]" />
+              All Employees
+            </label>
           </div>
+
+          {assignmentMode === 'single' && (
+            <div className="flex flex-col gap-1.5 mt-2">
+              <label className="text-[10px] text-gray-400 font-bold uppercase">Who is the employee? *</label>
+              <select value={selectedAssignees[0] || ''} 
+                onChange={e => {
+                  const empId = e.target.value;
+                  setSelectedAssignees(empId ? [empId] : []);
+                }}
+                className="w-full h-10 px-3 text-sm rounded-xl border border-gray-200 focus:outline-none focus:border-indigo-400 bg-white">
+                <option value="">-- Choose Employee --</option>
+                {employees.filter(e => e.is_active).map(emp => (
+                  <option key={emp.id} value={emp.id}>{emp.first_name} {emp.last_name} ({emp.designation || 'Specialist'})</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {assignmentMode === 'all' && (
+            <div className="p-3 bg-indigo-50/50 border border-indigo-100 rounded-xl text-xs text-indigo-700 font-bold mt-2">
+              📢 Task will be assigned to all active employees. ({employees.filter(e => e.is_active).length} employees total)
+            </div>
+          )}
         </div>
       </div>
 
@@ -537,7 +549,7 @@ export default function SSSManagerDashboard() {
           Cancel
         </button>
         <button onClick={taskView === 'create' ? handleCreateTask : handleUpdateTask} 
-          disabled={savingTask || !taskForm.task_title.trim() || taskForm.task_title.trim().split(/\s+/).filter(Boolean).length < 5}
+          disabled={savingTask || !taskForm.task_title.trim()}
           className="h-9 px-6 text-xs font-bold rounded-xl text-white flex items-center gap-1.5 transition-all disabled:opacity-50"
           style={{ background: BRAND }}>
           {savingTask ? <RefreshCw size={12} className="animate-spin" /> : <CheckCircle size={12} />}
