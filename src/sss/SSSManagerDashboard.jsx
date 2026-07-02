@@ -386,7 +386,7 @@ export default function SSSManagerDashboard() {
   /* ══════════════════════════════════════
      TASK FORM (Create / Edit)
   ══════════════════════════════════════ */
-  const TaskFormPanel = () => (
+  function renderTaskFormPanel() { return (
     <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100" style={{ background: `linear-gradient(135deg, ${BRAND}08, ${BRAND2}05)` }}>
@@ -545,12 +545,12 @@ export default function SSSManagerDashboard() {
         </button>
       </div>
     </div>
-  );
+  ); }
 
   /* ══════════════════════════════════════
      COMPLETION REVIEW PANEL
   ══════════════════════════════════════ */
-  const CompletionReviewPanel = () => (
+  function renderCompletionReviewPanel() { return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
@@ -708,7 +708,7 @@ export default function SSSManagerDashboard() {
         );
       })}
     </div>
-  );
+  ); }
 
   /* ══════════════════════════════════════════
      RENDER
@@ -1125,10 +1125,10 @@ export default function SSSManagerDashboard() {
                   )}
 
                   {/* CREATE / EDIT FORM */}
-                  {(taskView === 'create' || taskView === 'edit') && <TaskFormPanel />}
+                  {(taskView === 'create' || taskView === 'edit') && renderTaskFormPanel()}
 
                   {/* COMPLETION REVIEW */}
-                  {taskView === 'list' && taskSubTab === 'Completion Review' && <CompletionReviewPanel />}
+                  {taskView === 'list' && taskSubTab === 'Completion Review' && renderCompletionReviewPanel()}
                 </div>
               )}
             </>
