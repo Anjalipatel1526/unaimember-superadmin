@@ -129,6 +129,7 @@ export default function SSSManagerDashboard() {
   const [reviewForm,       setReviewForm]       = useState({ decision: '', comments: '', rating: 5 });
   const [reviewingTask,    setReviewingTask]    = useState(null);
   const [savingReview,     setSavingReview]     = useState(false);
+  const [selectedEmpDetail, setSelectedEmpDetail] = useState(null); // for employee task card modal
 
   /* ── Alerts/Daily tab state ── */
   const [alertInput,   setAlertInput]   = useState('');
@@ -619,7 +620,21 @@ export default function SSSManagerDashboard() {
                 <h3 className="font-extrabold text-gray-900 text-sm">{task.task_title}</h3>
                 <p className="text-[11px] text-gray-500 mt-0.5">
                   {task.project_name && <span className="mr-2">📁 {task.project_name}</span>}
-                  <span>👤 {assigneeNames}</span>
+                  {/* Clickable assignee name(s) → opens employee task card */}
+                  {taskAssignments.filter(a => a.task_id === task.id).map(a => {
+                    const emp = employees.find(e => e.id === a.employee_id);
+                    if (!emp) return null;
+                    return (
+                      <button
+                        key={a.id}
+                        onClick={() => setSelectedEmpDetail(emp)}
+                        className="inline-flex items-center gap-1 mr-1 text-[#4F6AF7] font-bold hover:underline transition-colors"
+                        title="View Employee Task Profile"
+                      >
+                        👤 {emp.first_name} {emp.last_name}
+                      </button>
+                    );
+                  })}
                   {task.due_date && <span className="ml-2">📅 Due: {task.due_date}</span>}
                 </p>
               </div>
@@ -777,9 +792,7 @@ export default function SSSManagerDashboard() {
       {/* ── SIDEBAR ── */}
       <aside className="flex flex-col shrink-0 bg-white border-r border-gray-100 shadow-sm transition-all duration-300" style={{ width: sidebarOpen ? 220 : 64 }}>
         <div className="flex items-center gap-3 px-4 h-16 border-b border-gray-100">
-          <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ background: BRAND }}>
-            <span className="text-white font-black text-xs">SSS</span>
-          </div>
+          <img src="/story_seed_logo.png" alt="Story Seed Studio" className="w-9 h-9 rounded-xl object-contain shrink-0" />
           {sidebarOpen && (
             <div className="min-w-0">
               <p className="font-extrabold text-sm text-gray-900 leading-none truncate">Manager Portal</p>
@@ -1222,6 +1235,131 @@ export default function SSSManagerDashboard() {
           )}
         </div>
       </main>
+
+      {/* ── Employee Task Detail Card Modal (Completion Review) ── */}
+      {selectedEmpDetail && (() => {
+        const emp = selectedEmpDetail;
+        const dept = departments.find(d => d.id === emp.department_id);
+        const meta = emp.pf_number?.trim().startsWith('{') ? (() => { try { return JSON.parse(emp.pf_number); } catch { return {}; } })() : {};
+        const empAssigns = taskAssignments.filter(a => a.employee_id === emp.id);
+        const empTasks = tasks.filter(t => empAssigns.some(a => a.task_id === t.id));
+        const empProgressRows = taskProgress.filter(p => p.employee_id === emp.id);
+        const empFeedback = taskFeedback.filter(f => f.employee_id === emp.id);
+        const acceptanceRecords = empProgressRows.filter(p => p.note === 'Task Accepted');
+        const totalT = empTasks.length;
+        const doneT = empTasks.filter(t => ['Completed','Approved'].includes(t.status)).length;
+        const activeT = empTasks.filter(t => ['Accepted','In Progress','Paused','Revision Required'].includes(t.status)).length;
+        const score = totalT > 0 ? Math.round((doneT / totalT) * 100) : 0;
+        const today = new Date().toISOString().split('T')[0];
+
+        const pColors = {
+          Low: 'bg-green-50 text-green-700 border border-green-100',
+          Medium: 'bg-amber-50 text-amber-700 border border-amber-100',
+          High: 'bg-orange-50 text-orange-700 border border-orange-100',
+          Critical: 'bg-red-50 text-red-700 border border-red-100',
+        };
+        const sColors = {
+          'Pending': 'bg-gray-50 text-gray-600', 'Accepted': 'bg-blue-50 text-blue-700',
+          'In Progress': 'bg-indigo-50 text-indigo-700', 'Paused': 'bg-amber-50 text-amber-700',
+          'Completed': 'bg-teal-50 text-teal-700', 'Approved': 'bg-green-50 text-green-700',
+          'Rejected': 'bg-rose-50 text-rose-700', 'Cancelled': 'bg-gray-100 text-gray-400',
+        };
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setSelectedEmpDetail(null)}>
+            <div className="bg-white w-full max-w-[700px] max-h-[88vh] rounded-3xl shadow-2xl flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+              {/* Header */}
+              <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center bg-gradient-to-r from-[#4F6AF7]/5 to-indigo-50/30">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-white font-extrabold text-lg" style={{ background: BRAND }}>
+                    {emp.first_name?.[0]}{emp.last_name?.[0]}
+                  </div>
+                  <div>
+                    <h3 className="text-base font-extrabold text-gray-900">{emp.first_name} {emp.last_name}</h3>
+                    <p className="text-[11px] text-gray-400">{emp.designation || 'Employee'} · {dept?.name || '—'}</p>
+                  </div>
+                </div>
+                <button onClick={() => setSelectedEmpDetail(null)} className="p-2 rounded-xl text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors"><X size={18} /></button>
+              </div>
+
+              {/* Stats row */}
+              <div className="px-6 py-4 grid grid-cols-4 gap-3 border-b border-gray-100 bg-gray-50/50">
+                {[
+                  { label: 'Total', value: totalT, color: BRAND },
+                  { label: 'Active', value: activeT, color: '#f59e0b' },
+                  { label: 'Done', value: doneT, color: '#10b981' },
+                  { label: 'Score', value: `${score}%`, color: score >= 75 ? '#10b981' : score >= 40 ? '#f59e0b' : '#ef4444' },
+                ].map(s => (
+                  <div key={s.label} className="text-center">
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">{s.label}</p>
+                    <p className="text-2xl font-extrabold mt-0.5" style={{ color: s.color }}>{s.value}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Performance Level */}
+              {meta.performance_status && (
+                <div className="px-6 py-3 border-b border-gray-100 flex items-center gap-2">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase">Performance Level:</span>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                    meta.performance_status === 'Excellent' ? 'bg-green-50 text-green-700' :
+                    meta.performance_status === 'Good' ? 'bg-blue-50 text-blue-700' :
+                    meta.performance_status === 'Average' ? 'bg-amber-50 text-amber-700' :
+                    'bg-red-50 text-red-700'
+                  }`}>{meta.performance_status}</span>
+                  {meta.performance_rating && <span className="text-[10px] text-amber-500 font-bold">⭐ {meta.performance_rating}/5</span>}
+                </div>
+              )}
+
+              {/* Task list */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-3">
+                <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Assigned Tasks ({empTasks.length})</h4>
+                {empTasks.length === 0 ? (
+                  <div className="text-center py-12 text-gray-300 italic text-sm">No tasks assigned yet</div>
+                ) : empTasks.map(task => {
+                  const accepted = acceptanceRecords.find(p => p.task_id === task.id);
+                  const fb = empFeedback.find(f => f.task_id === task.id);
+                  const isOverdue = task.due_date && task.due_date < today && !['Completed','Approved','Cancelled'].includes(task.status);
+                  return (
+                    <div key={task.id} className="border border-gray-200 rounded-2xl p-4 space-y-2.5 hover:border-[#4F6AF7]/30 transition-colors">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-gray-900 text-sm truncate">{task.task_title}</p>
+                          {task.project_name && <p className="text-[10px] text-indigo-600 font-semibold mt-0.5">{task.project_name}</p>}
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${pColors[task.priority] || pColors.Medium}`}>{task.priority}</span>
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${sColors[task.status] || sColors.Pending}`}>{task.status}</span>
+                        </div>
+                      </div>
+                      {/* Progress bar */}
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 bg-gray-100 h-1.5 rounded-full overflow-hidden">
+                          <div className="h-full rounded-full transition-all" style={{ width: `${task.completion_pct || 0}%`, background: BRAND }} />
+                        </div>
+                        <span className="text-[10px] font-bold text-gray-500">{task.completion_pct || 0}%</span>
+                      </div>
+                      {/* Meta */}
+                      <div className="flex items-center justify-between text-[9px] text-gray-400">
+                        <span>📅 Due: <span className={`font-semibold ${isOverdue ? 'text-red-500' : 'text-gray-600'}`}>{task.due_date || '—'}{isOverdue ? ' ⚠️' : ''}</span></span>
+                        {accepted && <span className="text-emerald-600 font-bold">✓ Accepted {new Date(accepted.created_at).toLocaleDateString('en-IN', { day:'2-digit', month:'short' })}</span>}
+                      </div>
+                      {/* Completion feedback */}
+                      {fb && (
+                        <div className="bg-teal-50 border border-teal-100 rounded-xl p-3 mt-1">
+                          <p className="text-[9px] font-bold text-teal-700 uppercase tracking-wide mb-1">Completion Report</p>
+                          <p className="text-[10px] text-teal-800 line-clamp-2">{fb.work_summary || 'No summary provided.'}</p>
+                          {fb.hours_worked && <span className="text-[9px] text-teal-600 font-semibold">⏱ {fb.hours_worked}h logged</span>}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

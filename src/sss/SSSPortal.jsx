@@ -3265,8 +3265,8 @@ export default function SSSPortal() {
         };
 
         return (
-          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-end bg-black/40 backdrop-blur-sm" onClick={() => setSelectedPerformanceEmp(null)}>
-            <div className="bg-white h-full sm:h-auto sm:max-h-[92vh] w-full sm:w-[520px] rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setSelectedPerformanceEmp(null)}>
+            <div className="bg-white w-full max-w-[700px] max-h-[88vh] rounded-3xl shadow-2xl flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
               {/* Header */}
               <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center bg-gradient-to-r from-[#4F6AF7]/5 to-indigo-50/30">
                 <div className="flex items-center gap-3">
