@@ -200,9 +200,9 @@ export default function SSSEmployeeDashboard() {
     }
   };
 
-  const fetchEmployeeTasks = async (employeeId, companyId) => {
+  const fetchEmployeeTasks = async (employeeId, companyId, silent = false) => {
     try {
-      setLoadingTasks(true);
+      if (!silent) setLoadingTasks(true);
       // Fetch task assignments for this employee
       const { data: assignments } = await supabase
         .from('sss_task_assignments')
@@ -525,10 +525,10 @@ export default function SSSEmployeeDashboard() {
     if (!selectedEmployee || !company) return;
 
     const channel = supabase.channel(`employee-task-updates-${selectedEmployee.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'sss_tasks', filter: `company_id=eq.${company.id}` }, () => fetchEmployeeTasks(selectedEmployee.id, company.id))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'sss_task_assignments', filter: `employee_id=eq.${selectedEmployee.id}` }, () => fetchEmployeeTasks(selectedEmployee.id, company.id))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'sss_task_feedback', filter: `employee_id=eq.${selectedEmployee.id}` }, () => fetchEmployeeTasks(selectedEmployee.id, company.id))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'sss_task_reviews' }, () => fetchEmployeeTasks(selectedEmployee.id, company.id))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'sss_tasks', filter: `company_id=eq.${company.id}` }, () => fetchEmployeeTasks(selectedEmployee.id, company.id, true))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'sss_task_assignments', filter: `employee_id=eq.${selectedEmployee.id}` }, () => fetchEmployeeTasks(selectedEmployee.id, company.id, true))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'sss_task_feedback', filter: `employee_id=eq.${selectedEmployee.id}` }, () => fetchEmployeeTasks(selectedEmployee.id, company.id, true))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'sss_task_reviews' }, () => fetchEmployeeTasks(selectedEmployee.id, company.id, true))
       .subscribe();
 
     return () => {
