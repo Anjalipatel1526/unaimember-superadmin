@@ -2160,8 +2160,17 @@ export default function SSSEmployeeDashboard() {
                 />
               </div>
 
-              <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-bold text-gray-400 uppercase">Reference/Work File URLs</label>
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase">Reference/Work File URLs</label>
+                  <button 
+                    type="button" 
+                    onClick={() => setCompletionForm(p => ({ ...p, file_urls: [...p.file_urls, ''] }))} 
+                    className="text-[#4F6AF7] hover:underline font-bold text-[10px]"
+                  >
+                    + Add URL
+                  </button>
+                </div>
                 {completionForm.file_urls.map((url, index) => (
                   <div key={index} className="flex gap-2 items-center">
                     <input
@@ -2175,15 +2184,23 @@ export default function SSSEmployeeDashboard() {
                       placeholder="https://example.com/my-work-file"
                       className="flex-1 h-10 px-3 border border-gray-200 rounded-xl"
                     />
-                    {index === completionForm.file_urls.length - 1 ? (
-                      <button type="button" onClick={() => setCompletionForm(p => ({ ...p, file_urls: [...p.file_urls, ''] }))} className="px-3 h-10 bg-indigo-50 hover:bg-indigo-100 text-[#4F6AF7] rounded-xl font-bold">
-                        +
-                      </button>
-                    ) : (
-                      <button type="button" onClick={() => setCompletionForm(p => ({ ...p, file_urls: p.file_urls.filter((_, i) => i !== index) }))} className="px-3 h-10 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl font-bold">
-                        -
-                      </button>
-                    )}
+                    <button 
+                      type="button" 
+                      onClick={() => {
+                        if (completionForm.file_urls.length > 1) {
+                          setCompletionForm(p => ({ ...p, file_urls: p.file_urls.filter((_, i) => i !== index) }));
+                        } else {
+                          // Clear the single url
+                          const next = [...completionForm.file_urls];
+                          next[0] = '';
+                          setCompletionForm(p => ({ ...p, file_urls: next }));
+                        }
+                      }} 
+                      className="px-3 h-10 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl font-bold font-mono"
+                      title="Remove URL"
+                    >
+                      -
+                    </button>
                   </div>
                 ))}
               </div>

@@ -141,8 +141,8 @@ export default function SSSManagerDashboard() {
   const [saving,       setSaving]       = useState(false);
 
   /* ─────────────── FETCH ALL DATA ─────────────── */
-  const fetchAll = useCallback(async () => {
-    setLoading(true);
+  const fetchAll = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const { data: coData } = await supabase.from('companies').select('id').ilike('name', '%story%seed%').maybeSingle();
       if (coData) {
@@ -168,7 +168,7 @@ export default function SSSManagerDashboard() {
 
       await fetchTasks();
     } catch (e) { console.error(e); }
-    setLoading(false);
+    if (!silent) setLoading(false);
   }, []);
 
   const fetchTasks = async () => {
@@ -418,7 +418,7 @@ export default function SSSManagerDashboard() {
         try {
           const { error } = await supabase.from('attendance').delete().eq('id', id);
           if (error) throw error;
-          await fetchAll();
+          await fetchAll(true);
         } catch (e) {
           alert('Failed to delete attendance record: ' + e.message);
         }
@@ -435,7 +435,7 @@ export default function SSSManagerDashboard() {
         try {
           const { error } = await supabase.from('leave_requests').delete().eq('id', id);
           if (error) throw error;
-          await fetchAll();
+          await fetchAll(true);
         } catch (e) {
           alert('Failed to delete leave request: ' + e.message);
         }
@@ -845,8 +845,8 @@ export default function SSSManagerDashboard() {
       {/* ── SIDEBAR ── */}
       <aside className="flex flex-col shrink-0 bg-white border-r border-gray-100 shadow-sm transition-all duration-300" style={{ width: sidebarOpen ? 220 : 64 }}>
         <div className="flex items-center gap-3 px-4 h-16 border-b border-gray-100">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-white border border-gray-200 shadow-sm overflow-hidden">
-            <img src="/story_seed_logo.png" alt="Story Seed Studio" className="w-full h-full object-contain p-1" />
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-[#8c1d18] border border-red-900/30 shadow-sm overflow-hidden">
+            <img src="/story_seed_logo.png" alt="Story Seed Studio" className="w-full h-full object-cover" />
           </div>
           {sidebarOpen && (
             <div className="min-w-0">

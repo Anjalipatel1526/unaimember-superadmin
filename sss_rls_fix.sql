@@ -67,3 +67,25 @@ ALTER TABLE notifications ADD COLUMN IF NOT EXISTS is_archived boolean DEFAULT f
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "allow_all_notifications" ON notifications;
 CREATE POLICY "allow_all_notifications" ON notifications FOR ALL USING (true) WITH CHECK (true);
+
+
+-- 7. SSS TASK tables RLS policies
+ALTER TABLE sss_tasks ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "allow_all_sss_tasks" ON sss_tasks;
+CREATE POLICY "allow_all_sss_tasks" ON sss_tasks FOR ALL USING (true) WITH CHECK (true);
+
+ALTER TABLE sss_task_assignments ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "allow_all_sss_task_assignments" ON sss_task_assignments;
+CREATE POLICY "allow_all_sss_task_assignments" ON sss_task_assignments FOR ALL USING (true) WITH CHECK (true);
+
+ALTER TABLE sss_task_feedback ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "allow_all_sss_task_feedback" ON sss_task_feedback;
+CREATE POLICY "allow_all_sss_task_feedback" ON sss_task_feedback FOR ALL USING (true) WITH CHECK (true);
+
+ALTER TABLE sss_task_progress ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "allow_all_sss_task_progress" ON sss_task_progress;
+CREATE POLICY "allow_all_sss_task_progress" ON sss_task_progress FOR ALL USING (true) WITH CHECK (true);
+
+ALTER TABLE sss_task_reviews ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "allow_all_sss_task_reviews" ON sss_task_reviews;
+CREATE POLICY "allow_all_sss_task_reviews" ON sss_task_reviews FOR ALL USING (true) WITH CHECK (true);

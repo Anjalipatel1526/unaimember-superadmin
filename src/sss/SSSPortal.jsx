@@ -187,9 +187,12 @@ export default function SSSPortal() {
   };
 
   // Fetch Data from Supabase
-  const fetchData = async (isRef = false) => {
+  const fetchData = async (isRefOrSilent = false) => {
+    const isSilent = isRefOrSilent === 'silent';
+    const isRef = isRefOrSilent === true;
+    
     if (isRef) setRefreshing(true);
-    else setLoading(true);
+    else if (!isSilent) setLoading(true);
     setError(null);
 
     try {
@@ -317,8 +320,8 @@ export default function SSSPortal() {
       console.error('Fetch error:', e);
       setError(e.message || 'Failed to connect and fetch data from Supabase backend.');
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (isRef) setRefreshing(false);
+      else if (!isSilent) setLoading(false);
     }
   };
 
@@ -682,6 +685,21 @@ export default function SSSPortal() {
           if (e5) console.warn('[SSS Delete] documents (non-fatal):', e5.message);
           else console.log('[SSS Delete] ✓ documents');
 
+          // Step 5.1: sss_task_assignments
+          const { error: eTas } = await adminClient.from('sss_task_assignments').delete().eq('employee_id', id);
+          if (eTas) console.warn('[SSS Delete] sss_task_assignments (non-fatal):', eTas.message);
+          else console.log('[SSS Delete] ✓ sss_task_assignments');
+
+          // Step 5.2: sss_task_feedback
+          const { error: eTfb } = await adminClient.from('sss_task_feedback').delete().eq('employee_id', id);
+          if (eTfb) console.warn('[SSS Delete] sss_task_feedback (non-fatal):', eTfb.message);
+          else console.log('[SSS Delete] ✓ sss_task_feedback');
+
+          // Step 5.3: sss_task_progress
+          const { error: eTpr } = await adminClient.from('sss_task_progress').delete().eq('employee_id', id);
+          if (eTpr) console.warn('[SSS Delete] sss_task_progress (non-fatal):', eTpr.message);
+          else console.log('[SSS Delete] ✓ sss_task_progress');
+
           // Step 6: DELETE the employee row itself
           const { error: e6 } = await adminClient.from('employees').delete().eq('id', id);
           if (e6) throw new Error('employees: ' + e6.message);
@@ -702,7 +720,7 @@ export default function SSSPortal() {
           }
 
           console.log(`[SSS Delete] ✅ COMPLETE — "${name}" fully removed from Supabase`);
-          fetchData();
+          fetchData('silent');
         } catch (err) {
           console.error('[SSS Delete] FAILED:', err.message);
           setError(`Delete failed at step: ${err.message} — Open F12 Console for details.`);
@@ -731,7 +749,7 @@ export default function SSSPortal() {
 
       if (insertError) throw insertError;
 
-      fetchData();
+      fetchData('silent');
       setShowAddAttendanceModal(false);
     } catch (e) {
       alert('Failed to record attendance: ' + e.message);
@@ -757,7 +775,7 @@ export default function SSSPortal() {
             throw error;
           }
           console.log('[SSS Delete] ✓ Attendance log deleted from Supabase');
-          fetchData();
+          fetchData('silent');
         } catch (e) {
           setError('Failed to delete attendance log: ' + e.message + ' — Check F12 console for details.');
         }
@@ -786,7 +804,7 @@ export default function SSSPortal() {
 
       if (insertError) throw insertError;
 
-      fetchData();
+      fetchData('silent');
       setShowAddLeaveModal(false);
     } catch (e) {
       alert('Failed to submit leave request: ' + e.message);
@@ -802,7 +820,7 @@ export default function SSSPortal() {
         .eq('id', id);
 
       if (error) throw error;
-      fetchData();
+      fetchData('silent');
     } catch (e) {
       alert('Failed to update leave status: ' + e.message);
     }
@@ -827,7 +845,7 @@ export default function SSSPortal() {
             throw error;
           }
           console.log('[SSS Delete] ✓ Leave request deleted from Supabase');
-          fetchData();
+          fetchData('silent');
         } catch (e) {
           setError('Failed to delete leave request: ' + e.message + ' — Check F12 console for details.');
         }
@@ -854,7 +872,7 @@ export default function SSSPortal() {
             throw error;
           }
           console.log('[SSS Delete] ✓ Daily report deleted from Supabase');
-          fetchData();
+          fetchData('silent');
         } catch (e) {
           setError('Failed to delete daily report: ' + e.message + ' — Check F12 console for details.');
         }
@@ -882,7 +900,7 @@ export default function SSSPortal() {
             throw error;
           }
           console.log('[SSS Delete] ✓ Broadcast notifications deleted from Supabase');
-          fetchData();
+          fetchData('silent');
         } catch (e) {
           setError('Failed to delete broadcast: ' + e.message + ' — Check F12 console for details.');
         }
@@ -3264,7 +3282,7 @@ export default function SSSPortal() {
                                       
                                       const { error } = await supabase.from('sss_tasks').delete().eq('id', t.id);
                                       if (error) throw error;
-                                      fetchData();
+                                      fetchData('silent');
                                     } catch (err) {
                                       setError('Failed to delete task: ' + err.message);
                                     }
