@@ -1613,12 +1613,7 @@ export default function SSSEmployeeDashboard() {
                 <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{tasks.length} total tasks</span>
               </div>
 
-              {loadingTasks && tasks.length === 0 ? (
-                <div className="py-12 flex flex-col items-center justify-center gap-2">
-                  <div className="w-6 h-6 border-2 border-[#4F6AF7] border-t-transparent rounded-full animate-spin" />
-                  <p className="text-[10px] text-gray-400 font-bold">Loading tasks...</p>
-                </div>
-              ) : tasks.length === 0 ? (
+              {tasks.length === 0 ? (
                 <div className="text-center py-16 text-gray-400 italic text-xs">
                   No tasks assigned to you.
                 </div>
