@@ -145,40 +145,40 @@ export default function SSSEmployeeDashboard() {
 
   const fetchEmployeeData = async (employeeId, companyId) => {
     try {
-      // Fetch attendance
-      const { data: attData, error: attErr } = await supabase
-        .from('attendance')
-        .select('*')
-        .eq('employee_id', employeeId)
-        .eq('company_id', companyId)
-        .order('date', { ascending: false });
-
-      if (attErr) throw attErr;
-      setAttendanceLogs(attData || []);
-
-      // Fetch leave requests
-      const { data: lData, error: lErr } = await supabase
-        .from('leave_requests')
-        .select('*')
-        .eq('employee_id', employeeId)
-        .eq('company_id', companyId)
-        .order('created_at', { ascending: false });
-
-      if (lErr) throw lErr;
-      setLeaveRequests(lData || []);
-
-      // Resolve user_id mapping
-      let empUserId = null;
-      const empRecord = employees.find(e => e.id === employeeId);
-      if (empRecord) {
-        empUserId = empRecord.user_id;
-      } else {
-        const { data: dbEmp } = await supabase
+      // Parallelize initial queries
+      const [attRes, leaveRes, empRes] = await Promise.all([
+        supabase
+          .from('attendance')
+          .select('*')
+          .eq('employee_id', employeeId)
+          .eq('company_id', companyId)
+          .order('date', { ascending: false }),
+        supabase
+          .from('leave_requests')
+          .select('*')
+          .eq('employee_id', employeeId)
+          .eq('company_id', companyId)
+          .order('created_at', { ascending: false }),
+        supabase
           .from('employees')
           .select('user_id')
           .eq('id', employeeId)
-          .maybeSingle();
-        if (dbEmp) empUserId = dbEmp.user_id;
+          .maybeSingle()
+      ]);
+
+      if (attRes.error) throw attRes.error;
+      if (leaveRes.error) throw leaveRes.error;
+
+      setAttendanceLogs(attRes.data || []);
+      setLeaveRequests(leaveRes.data || []);
+
+      // Resolve user_id mapping
+      let empUserId = empRes.data?.user_id || null;
+      if (!empUserId) {
+        const empRecord = employees.find(e => e.id === employeeId);
+        if (empRecord) {
+          empUserId = empRecord.user_id;
+        }
       }
 
       const userFilter = empUserId ? `user_id.eq.${empUserId},user_id.is.null` : 'user_id.is.null';
@@ -194,7 +194,7 @@ export default function SSSEmployeeDashboard() {
       if (notifErr) throw notifErr;
       setNotifications(notifData || []);
       
-      // Fetch employee tasks as well
+      // Fetch employee tasks concurrently
       await fetchEmployeeTasks(employeeId, companyId);
     } catch (err) {
       console.error(err);
@@ -204,40 +204,44 @@ export default function SSSEmployeeDashboard() {
   const fetchEmployeeTasks = async (employeeId, companyId, silent = false) => {
     try {
       if (!silent) setLoadingTasks(true);
-      // Fetch task assignments for this employee
-      const { data: assignments } = await supabase
-        .from('sss_task_assignments')
-        .select('*')
-        .eq('employee_id', employeeId);
       
-      const validAssignments = assignments || [];
+      // Concurrently fetch assignments, feedback and reviews
+      const [assignRes, fbRes, revRes] = await Promise.all([
+        supabase
+          .from('sss_task_assignments')
+          .select('*')
+          .eq('employee_id', employeeId),
+        supabase
+          .from('sss_task_feedback')
+          .select('*')
+          .eq('employee_id', employeeId),
+        supabase
+          .from('sss_task_reviews')
+          .select('*')
+      ]);
+      
+      if (assignRes.error) throw assignRes.error;
+      if (fbRes.error) throw fbRes.error;
+      if (revRes.error) throw revRes.error;
+      
+      const validAssignments = assignRes.data || [];
       setTaskAssignments(validAssignments);
+      setTaskFeedback(fbRes.data || []);
+      setTaskReviews(revRes.data || []);
       
       if (validAssignments.length > 0) {
         const taskIds = validAssignments.map(a => a.task_id);
-        const { data: tasksData } = await supabase
+        const { data: tasksData, error: tasksErr } = await supabase
           .from('sss_tasks')
           .select('*')
           .in('id', taskIds)
           .order('created_at', { ascending: false });
         
+        if (tasksErr) throw tasksErr;
         setTasks(tasksData || []);
       } else {
-        if (!silent) setTasks([]);
+        setTasks([]);
       }
-
-      // Fetch feedback
-      const { data: fbData } = await supabase
-        .from('sss_task_feedback')
-        .select('*')
-        .eq('employee_id', employeeId);
-      setTaskFeedback(fbData || []);
-
-      // Fetch reviews
-      const { data: revData } = await supabase
-        .from('sss_task_reviews')
-        .select('*');
-      setTaskReviews(revData || []);
     } catch (e) {
       console.error('Error fetching tasks:', e);
     } finally {
