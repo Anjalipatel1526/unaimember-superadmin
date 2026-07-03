@@ -83,6 +83,17 @@ export default function SSSEmployeeDashboard() {
     file_urls: [''],
   });
 
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [profileFormData, setProfileFormData] = useState({
+    first_name: '',
+    last_name: '',
+    joining_date: '',
+    employment_type: 'employee', // 'intern' | 'employee' | 'half time'
+    basic_salary: 0,
+    designation: '',
+    department_id: ''
+  });
+
   // Set document title without %20
   useEffect(() => {
     document.title = "Employee Detail";
@@ -881,6 +892,66 @@ export default function SSSEmployeeDashboard() {
     }
   };
 
+  const openProfileModal = () => {
+    if (!selectedEmployee) return;
+    const meta = getMetadata(selectedEmployee);
+    setProfileFormData({
+      first_name: selectedEmployee.first_name || '',
+      last_name: selectedEmployee.last_name || '',
+      joining_date: selectedEmployee.joining_date || '',
+      employment_type: meta.employment_type || 'employee',
+      basic_salary: selectedEmployee.basic_salary || 0,
+      designation: selectedEmployee.designation || '',
+      department_id: selectedEmployee.department_id || ''
+    });
+    setShowProfileModal(true);
+  };
+
+  const handleSaveProfile = async () => {
+    try {
+      const currentMeta = getMetadata(selectedEmployee);
+      const updatedMeta = {
+        ...currentMeta,
+        employment_type: profileFormData.employment_type
+      };
+
+      const { error: updateErr } = await supabase
+        .from('employees')
+        .update({
+          first_name: profileFormData.first_name,
+          last_name: profileFormData.last_name,
+          joining_date: profileFormData.joining_date || null,
+          basic_salary: profileFormData.basic_salary ? Number(profileFormData.basic_salary) : null,
+          designation: profileFormData.designation,
+          department_id: profileFormData.department_id || null,
+          pf_number: JSON.stringify(updatedMeta)
+        })
+        .eq('id', selectedEmployee.id);
+
+      if (updateErr) throw updateErr;
+
+      // Update local state
+      const updatedEmp = {
+        ...selectedEmployee,
+        first_name: profileFormData.first_name,
+        last_name: profileFormData.last_name,
+        joining_date: profileFormData.joining_date,
+        basic_salary: profileFormData.basic_salary,
+        designation: profileFormData.designation,
+        department_id: profileFormData.department_id,
+        pf_number: JSON.stringify(updatedMeta)
+      };
+
+      setSelectedEmployee(updatedEmp);
+      setEmployees(prev => prev.map(emp => emp.id === selectedEmployee.id ? updatedEmp : emp));
+      setShowProfileModal(false);
+      alert('Profile updated successfully!');
+    } catch (err) {
+      console.error(err);
+      alert('Failed to update profile: ' + err.message);
+    }
+  };
+
   // Recharts Attendance History Chart Data preparation
   const chartData = React.useMemo(() => {
     const logs = [...attendanceLogs].slice(0, 7).reverse();
@@ -1060,7 +1131,11 @@ export default function SSSEmployeeDashboard() {
         </div>
 
         {/* Profile Card Header (Supports Custom Profile Picture) */}
-        <div className="p-4 mx-3 my-4 bg-indigo-50/50 border border-indigo-100 rounded-2xl flex items-center gap-3">
+        <div 
+          onClick={openProfileModal}
+          className="p-4 mx-3 my-4 bg-indigo-50/50 border border-indigo-100 rounded-2xl flex items-center gap-3 cursor-pointer hover:bg-indigo-100/70 transition-all"
+          title="Click to view/edit profile details"
+        >
           {meta.profile_picture ? (
             <img 
               src={meta.profile_picture} 
@@ -1156,36 +1231,27 @@ export default function SSSEmployeeDashboard() {
             
             {/* Top Profile Banner containing the custom profile picture, name, and meta stats */}
             <div className="bg-white border border-gray-200/80 rounded-3xl p-6 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6">
-              <div className="flex items-center gap-4 text-center md:text-left flex-col md:flex-row">
-                <label className="relative cursor-pointer group select-none shrink-0">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleBannerFileChange}
-                    className="hidden"
-                  />
+              <div 
+                onClick={openProfileModal}
+                className="flex items-center gap-4 text-center md:text-left flex-col md:flex-row cursor-pointer group/banner"
+                title="Click to view/edit profile details"
+              >
+                <div className="relative shrink-0 select-none">
                   {meta.profile_picture ? (
                     <img 
                       src={meta.profile_picture} 
                       alt="Profile" 
-                      className="w-16 h-16 rounded-full object-cover shrink-0 border-2 border-white shadow-md transition-all group-hover:brightness-75"
+                      className="w-16 h-16 rounded-full object-cover shrink-0 border-2 border-white shadow-md transition-all group-hover/banner:brightness-95"
                       onError={(e) => { e.currentTarget.src = ''; }}
                     />
                   ) : (
-                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#4F6AF7] to-[#8094FF] text-white text-xl font-extrabold flex items-center justify-center shadow-md shadow-[#4F6AF7]/10 transition-all group-hover:brightness-90">
+                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#4F6AF7] to-[#8094FF] text-white text-xl font-extrabold flex items-center justify-center shadow-md shadow-[#4F6AF7]/10 transition-all group-hover/banner:brightness-95">
                       {selectedEmployee.first_name?.[0]}{selectedEmployee.last_name?.[0]}
                     </div>
                   )}
-                  {/* Camera Icon Overlay on Hover */}
-                  <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                  </div>
-                </label>
+                </div>
                 <div>
-                  <h2 className="text-lg font-extrabold text-gray-900 leading-tight">{selectedEmployee.first_name} {selectedEmployee.last_name}</h2>
+                  <h2 className="text-lg font-extrabold text-gray-900 leading-tight group-hover/banner:text-[#4F6AF7] transition-all">{selectedEmployee.first_name} {selectedEmployee.last_name}</h2>
                   <p className="text-xs text-[#4F6AF7] font-bold mt-1">{selectedEmployee.designation || 'Specialist'}</p>
                   <p className="text-[10px] text-gray-400 mt-1.5">Story Seed Studio • Joined {selectedEmployee.joining_date ? new Date(selectedEmployee.joining_date).toLocaleDateString() : '—'}</p>
                 </div>
@@ -2321,6 +2387,174 @@ export default function SSSEmployeeDashboard() {
           </div>
         </div>
       )}
+
+      {/* ── Center Profile Card Modal ── */}
+      {showProfileModal && (() => {
+        const emp = selectedEmployee;
+        const meta = getMetadata(emp);
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fadeIn" onClick={() => setShowProfileModal(false)}>
+            <div className="bg-white w-full max-w-[760px] rounded-3xl shadow-2xl flex flex-col md:flex-row overflow-hidden animate-slideUp text-left" onClick={e => e.stopPropagation()}>
+              
+              {/* Left Side: Profile Picture & Upload Option */}
+              <div className="w-full md:w-[280px] bg-gradient-to-br from-indigo-50/50 to-indigo-100/30 p-8 flex flex-col items-center justify-center border-r border-gray-100/85 shrink-0 text-center relative">
+                <label className="relative cursor-pointer group/modalSelect shrink-0">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleBannerFileChange}
+                    className="hidden"
+                  />
+                  {meta.profile_picture ? (
+                    <img 
+                      src={meta.profile_picture} 
+                      alt="Profile" 
+                      className="w-36 h-36 rounded-full object-cover border-4 border-white shadow-xl transition-all group-hover/modalSelect:brightness-75"
+                      onError={(e) => { e.currentTarget.src = ''; }}
+                    />
+                  ) : (
+                    <div className="w-36 h-36 rounded-full bg-gradient-to-br from-[#4F6AF7] to-[#8094FF] text-white text-4xl font-extrabold flex items-center justify-center border-4 border-white shadow-xl transition-all group-hover/modalSelect:brightness-95">
+                      {emp.first_name?.[0]}{emp.last_name?.[0]}
+                    </div>
+                  )}
+                  {/* Camera icon overlay */}
+                  <div className="absolute inset-0 bg-black/40 rounded-full flex flex-col items-center justify-center opacity-0 group-hover/modalSelect:opacity-100 transition-opacity">
+                    <svg className="w-8 h-8 text-white mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    <span className="text-[10px] text-white font-bold tracking-wider uppercase">Upload Photo</span>
+                  </div>
+                </label>
+
+                <h3 className="font-extrabold text-gray-900 mt-4 text-base leading-tight">{emp.first_name} {emp.last_name}</h3>
+                <p className="text-xs text-[#4F6AF7] font-bold mt-1 uppercase tracking-wide">{emp.designation || 'Specialist'}</p>
+                <p className="text-[10px] text-gray-400 mt-3 max-w-[200px] leading-relaxed">
+                  Click the photo above to select and upload a new profile picture.
+                </p>
+              </div>
+
+              {/* Right Side: Details Form */}
+              <div className="flex-1 p-8 space-y-6 flex flex-col justify-between">
+                <div>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h2 className="text-lg font-black text-gray-900 uppercase tracking-wide">Employee Details Profile</h2>
+                      <p className="text-[11px] text-gray-400 mt-0.5 font-medium">Verify or update employee record files</p>
+                    </div>
+                    <button onClick={() => setShowProfileModal(false)} className="p-2 rounded-xl text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors"><XCircle size={20} /></button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6 text-left">
+                    {/* First name */}
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">First Name</label>
+                      <input 
+                        type="text" 
+                        value={profileFormData.first_name} 
+                        onChange={e => setProfileFormData(p => ({ ...p, first_name: e.target.value }))}
+                        className="h-10 px-3.5 text-xs font-semibold rounded-xl border border-gray-200 focus:outline-none focus:border-[#4F6AF7] focus:ring-1 focus:ring-[#4F6AF7] bg-white text-gray-800"
+                      />
+                    </div>
+
+                    {/* Last name */}
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Last Name</label>
+                      <input 
+                        type="text" 
+                        value={profileFormData.last_name} 
+                        onChange={e => setProfileFormData(p => ({ ...p, last_name: e.target.value }))}
+                        className="h-10 px-3.5 text-xs font-semibold rounded-xl border border-gray-200 focus:outline-none focus:border-[#4F6AF7] focus:ring-1 focus:ring-[#4F6AF7] bg-white text-gray-800"
+                      />
+                    </div>
+
+                    {/* Employee ID (Read Only) */}
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">ID Number (Code)</label>
+                      <input 
+                        type="text" 
+                        value={emp.id ? emp.id.slice(0, 8).toUpperCase() : '—'} 
+                        disabled
+                        className="h-10 px-3.5 text-xs font-bold rounded-xl border border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed"
+                      />
+                    </div>
+
+                    {/* Joining Date */}
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Joining Date</label>
+                      <input 
+                        type="date" 
+                        value={profileFormData.joining_date} 
+                        onChange={e => setProfileFormData(p => ({ ...p, joining_date: e.target.value }))}
+                        className="h-10 px-3.5 text-xs font-semibold rounded-xl border border-gray-200 focus:outline-none focus:border-[#4F6AF7] focus:ring-1 focus:ring-[#4F6AF7] bg-white text-gray-800"
+                      />
+                    </div>
+
+                    {/* Employment Type Option */}
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Employment Type</label>
+                      <select 
+                        value={profileFormData.employment_type} 
+                        onChange={e => setProfileFormData(p => ({ ...p, employment_type: e.target.value }))}
+                        className="h-10 px-3 text-xs font-semibold rounded-xl border border-gray-200 focus:outline-none focus:border-[#4F6AF7] bg-white text-gray-800"
+                      >
+                        <option value="intern">Intern</option>
+                        <option value="employee">Employee</option>
+                        <option value="half time">Half time</option>
+                      </select>
+                    </div>
+
+                    {/* Basic Salary */}
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Basic Salary (₹)</label>
+                      <input 
+                        type="number" 
+                        value={profileFormData.basic_salary} 
+                        onChange={e => setProfileFormData(p => ({ ...p, basic_salary: Number(e.target.value) }))}
+                        className="h-10 px-3.5 text-xs font-semibold rounded-xl border border-gray-200 focus:outline-none focus:border-[#4F6AF7] focus:ring-1 focus:ring-[#4F6AF7] bg-white text-gray-800"
+                      />
+                    </div>
+
+                    {/* Designation */}
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Designation</label>
+                      <input 
+                        type="text" 
+                        value={profileFormData.designation} 
+                        onChange={e => setProfileFormData(p => ({ ...p, designation: e.target.value }))}
+                        className="h-10 px-3.5 text-xs font-semibold rounded-xl border border-gray-200 focus:outline-none focus:border-[#4F6AF7] focus:ring-1 focus:ring-[#4F6AF7] bg-white text-gray-800"
+                      />
+                    </div>
+
+                    {/* Department Select */}
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Department</label>
+                      <select 
+                        value={profileFormData.department_id} 
+                        onChange={e => setProfileFormData(p => ({ ...p, department_id: e.target.value }))}
+                        className="h-10 px-3 text-xs font-semibold rounded-xl border border-gray-200 focus:outline-none focus:border-[#4F6AF7] bg-white text-gray-800"
+                      >
+                        <option value="">No Department</option>
+                        {departments.map(d => (
+                          <option key={d.id} value={d.id}>{d.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Footer Buttons */}
+                <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-100">
+                  <button onClick={() => setShowProfileModal(false)} className="h-10 px-5 text-xs font-bold border border-gray-200 text-gray-500 rounded-xl hover:bg-gray-50 transition-colors">Cancel</button>
+                  <button onClick={handleSaveProfile} className="h-10 px-6 text-xs font-bold text-white rounded-xl shadow-md transition-all" style={{ background: '#4F6AF7' }}>Save Changes</button>
+                </div>
+
+              </div>
+
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
