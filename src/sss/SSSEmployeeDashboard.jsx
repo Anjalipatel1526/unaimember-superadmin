@@ -809,7 +809,7 @@ export default function SSSEmployeeDashboard() {
       const img = new Image();
       img.onload = async () => {
         const canvas = document.createElement('canvas');
-        const size = 150;
+        const size = 1000;
         canvas.width = size;
         canvas.height = size;
         const ctx = canvas.getContext('2d');
@@ -819,7 +819,7 @@ export default function SSSEmployeeDashboard() {
         const sy = (img.height - minSide) / 2;
         
         ctx.drawImage(img, sx, sy, minSide, minSide, 0, 0, size, size);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
         
         try {
           const currentMeta = getMetadata(selectedEmployee);
