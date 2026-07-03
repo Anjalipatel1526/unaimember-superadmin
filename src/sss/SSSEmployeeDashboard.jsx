@@ -3,7 +3,7 @@ import {
   Clock, Calendar, FileText, CheckCircle, XCircle, LogOut, ArrowRight,
   TrendingUp, Award, User, ChevronRight, Briefcase, Plus, CalendarDays, Activity,
   ClipboardList, CreditCard, Phone, Mail, Shield, Settings, LayoutDashboard, Search, Bell, Archive, Trash2, Paperclip,
-  CheckSquare, Star, Play, Pause, Send, Upload
+  CheckSquare, Star, Play, Pause, Send, Upload, Eye, EyeOff
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
@@ -83,6 +83,10 @@ export default function SSSEmployeeDashboard() {
     file_urls: [''],
   });
 
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [profileFormData, setProfileFormData] = useState({
     first_name: '',
@@ -91,7 +95,8 @@ export default function SSSEmployeeDashboard() {
     employment_type: 'employee', // 'intern' | 'employee' | 'half time'
     basic_salary: 0,
     designation: '',
-    department_id: ''
+    department_id: '',
+    password: ''
   });
 
   // Set document title without %20
@@ -572,6 +577,49 @@ export default function SSSEmployeeDashboard() {
     };
   }, [selectedEmployee, company]);
 
+  const handleLoginSubmit = async (e) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+
+    if (!loginEmail.trim() || !loginPassword.trim()) {
+      setError("Please fill out both email and password.");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const match = employees.find(
+        emp => emp.email?.toLowerCase().trim() === loginEmail.toLowerCase().trim()
+      );
+
+      if (!match) {
+        throw new Error("No employee profile found with this email address.");
+      }
+
+      const meta = getMetadata(match);
+      const correctPassword = meta.password || '123456';
+
+      if (loginPassword !== correctPassword) {
+        throw new Error("Incorrect password. Please try again.");
+      }
+
+      // Success
+      setSelectedEmployee(match);
+      localStorage.setItem('sss_employee_session_id', match.id);
+      await fetchEmployeeData(match.id, company.id);
+      
+      // Clear inputs
+      setLoginEmail('');
+      setLoginPassword('');
+    } catch (err) {
+      console.error(err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSelectEmployee = async (emp) => {
     setSelectedEmployee(emp);
     localStorage.setItem('sss_employee_session_id', emp.id);
@@ -905,7 +953,8 @@ export default function SSSEmployeeDashboard() {
       employment_type: meta.employment_type || 'employee',
       basic_salary: selectedEmployee.basic_salary || 0,
       designation: selectedEmployee.designation || '',
-      department_id: selectedEmployee.department_id || ''
+      department_id: selectedEmployee.department_id || '',
+      password: meta.password || '123456'
     });
     setShowProfileModal(true);
   };
@@ -915,7 +964,8 @@ export default function SSSEmployeeDashboard() {
       const currentMeta = getMetadata(selectedEmployee);
       const updatedMeta = {
         ...currentMeta,
-        employment_type: profileFormData.employment_type
+        employment_type: profileFormData.employment_type,
+        password: profileFormData.password
       };
 
       const { error: updateErr } = await supabase
@@ -1068,41 +1118,61 @@ export default function SSSEmployeeDashboard() {
           {loading ? (
             <div className="py-8 flex flex-col items-center justify-center gap-3">
               <div className="w-8 h-8 border-4 border-[#4F6AF7] border-t-transparent rounded-full animate-spin" />
-              <p className="text-xs text-gray-500 font-semibold">Connecting to backend...</p>
-            </div>
-          ) : error ? (
-            <div className="p-4 bg-red-50 text-red-700 text-xs rounded-xl font-medium border border-red-100">
-              {error}
+              <p className="text-xs text-gray-500 font-semibold">Authenticating...</p>
             </div>
           ) : (
-            <div className="space-y-4 text-left">
+            <form onSubmit={handleLoginSubmit} className="space-y-4 text-left">
+              {error && (
+                <div className="p-3 bg-red-50 text-red-700 text-xs rounded-xl font-semibold border border-red-100/80">
+                  {error}
+                </div>
+              )}
+
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Choose Employee Profile</label>
-                <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-                  {employees.map(emp => (
-                    <button
-                      key={emp.id}
-                      onClick={() => handleSelectEmployee(emp)}
-                      className="w-full flex items-center justify-between p-3.5 border border-gray-150 hover:border-[#4F6AF7] hover:bg-indigo-50/20 rounded-2xl transition-all group"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full bg-indigo-50 text-indigo-755 font-black flex items-center justify-center text-xs">
-                          {emp.first_name?.[0]}{emp.last_name?.[0]}
-                        </div>
-                        <div>
-                          <p className="text-xs font-bold text-gray-900 leading-none">{emp.first_name} {emp.last_name}</p>
-                          <p className="text-[10px] text-gray-400 mt-1">{emp.designation || 'Specialist'}</p>
-                        </div>
-                      </div>
-                      <ChevronRight size={14} className="text-gray-300 group-hover:text-[#4F6AF7] transition-all" />
-                    </button>
-                  ))}
-                  {employees.length === 0 && (
-                    <p className="text-xs text-gray-400 text-center py-4">No employees initialized. Add employees in the SSS Admin portal first.</p>
-                  )}
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Email Address</label>
+                <input
+                  type="email"
+                  value={loginEmail}
+                  onChange={e => setLoginEmail(e.target.value)}
+                  required
+                  placeholder="name@storyseed.com"
+                  className="w-full h-11 px-4 text-xs font-semibold rounded-2xl border border-gray-200 outline-none focus:border-[#4F6AF7] transition-all bg-white text-gray-800"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Password</label>
+                <div className="relative">
+                  <input
+                    type={showLoginPassword ? "text" : "password"}
+                    value={loginPassword}
+                    onChange={e => setLoginPassword(e.target.value)}
+                    required
+                    placeholder="••••••••"
+                    className="w-full h-11 pl-4 pr-10 text-xs font-semibold rounded-2xl border border-gray-200 outline-none focus:border-[#4F6AF7] transition-all bg-white text-gray-800"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowLoginPassword(!showLoginPassword)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    {showLoginPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
                 </div>
               </div>
-            </div>
+
+              <button
+                type="submit"
+                className="w-full h-11 bg-[#4F6AF7] hover:bg-[#3d58e5] text-white text-xs font-extrabold rounded-2xl shadow-md shadow-[#4F6AF7]/20 transition-all flex items-center justify-center gap-1.5 mt-2"
+              >
+                Sign In to Portal
+                <ArrowRight size={14} />
+              </button>
+
+              <p className="text-[10px] text-gray-400 text-center mt-4 leading-relaxed">
+                Default password is <span className="font-bold text-gray-500">123456</span> if you haven't customized it yet.
+              </p>
+            </form>
           )}
         </div>
       </div>
@@ -2542,6 +2612,18 @@ export default function SSSEmployeeDashboard() {
                           <option key={d.id} value={d.id}>{d.name}</option>
                         ))}
                       </select>
+                    </div>
+
+                    {/* Login Password */}
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Login Password</label>
+                      <input 
+                        type="text" 
+                        value={profileFormData.password} 
+                        onChange={e => setProfileFormData(p => ({ ...p, password: e.target.value }))}
+                        placeholder="Set portal login password"
+                        className="h-10 px-3.5 text-xs font-semibold rounded-xl border border-gray-200 focus:outline-none focus:border-[#4F6AF7] focus:ring-1 focus:ring-[#4F6AF7] bg-white text-gray-800"
+                      />
                     </div>
                   </div>
                 </div>
