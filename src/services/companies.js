@@ -36,7 +36,7 @@ function generateLoginEmail(companyName) {
 
 // ── Fetch all companies ───────────────────────────────────────
 export async function getCompanies() {
-  const { data, error } = await supabase
+  const { data, error } = await (supabaseAdmin || supabase)
     .from('companies')
     .select('*')
     .order('created_at', { ascending: false });
@@ -47,7 +47,7 @@ export async function getCompanies() {
 
 // ── Fetch companies with their login credentials joined ───────
 export async function getCompaniesWithCredentials() {
-  const { data, error } = await supabase
+  const { data, error } = await (supabaseAdmin || supabase)
     .from('companies')
     .select(`
       *,
@@ -84,7 +84,7 @@ export async function createCompany(payload) {
     address:             payload.address,
     logo_url:            payload.logo_url            || null,
     trial_expiry:        payload.trial_expiry        || null,
-    plan_id:             payload.plan_id             || null,
+    plan:                payload.plan                || 'starter',
     payroll_enabled:     payload.payroll_enabled     ?? false,
     performance_enabled: payload.performance_enabled ?? false,
     payment_status:      payload.payment_status      || 'Pending',
@@ -93,7 +93,7 @@ export async function createCompany(payload) {
   // 1️⃣  Insert the company record
   let company;
   try {
-    const { data, error } = await supabase
+    const { data, error } = await (supabaseAdmin || supabase)
       .from('companies')
       .insert([{ ...safe, ...optionals }])
       .select()
@@ -102,7 +102,7 @@ export async function createCompany(payload) {
     company = data;
   } catch (err) {
     if (err.message?.includes('schema cache') || err.code === 'PGRST204') {
-      const { data, error: err2 } = await supabase
+      const { data, error: err2 } = await (supabaseAdmin || supabase)
         .from('companies')
         .insert([safe])
         .select()
@@ -141,7 +141,7 @@ export async function createCompany(payload) {
 
   // 4️⃣  Store credentials (including password) in DB
   try {
-    await supabase.from('company_credentials').upsert([
+    await (supabaseAdmin || supabase).from('company_credentials').upsert([
       {
         company_id:     company.id,
         auth_user_id:   authUserId,
@@ -163,7 +163,7 @@ export async function createCompany(payload) {
 
 // ── Get credentials for a company ────────────────────────────
 export async function getCompanyCredentials(companyId) {
-  const { data, error } = await supabase
+  const { data, error } = await (supabaseAdmin || supabase)
     .from('company_credentials')
     .select('*')
     .eq('company_id', companyId)
@@ -193,7 +193,7 @@ export async function resetCompanyPassword(companyId, newPasswordInput) {
   }
 
   // Always update the stored password in company_credentials
-  const { error: dbErr } = await supabase
+  const { error: dbErr } = await (supabaseAdmin || supabase)
     .from('company_credentials')
     .update({ login_password: newPassword })
     .eq('company_id', companyId);
@@ -204,7 +204,7 @@ export async function resetCompanyPassword(companyId, newPasswordInput) {
 
 // ── Update company ────────────────────────────────────────────
 export async function updateCompany(id, payload) {
-  const { data, error } = await supabase
+  const { data, error } = await (supabaseAdmin || supabase)
     .from('companies')
     .update(payload)
     .eq('id', id)
@@ -229,13 +229,13 @@ export async function deleteCompany(id) {
     }
   }
 
-  const { error } = await supabase.from('companies').delete().eq('id', id);
+  const { error } = await (supabaseAdmin || supabase).from('companies').delete().eq('id', id);
   if (error) throw error;
 }
 
 // ── Dashboard stats ───────────────────────────────────────────
 export async function getCompanyStats() {
-  const { data, error } = await supabase
+  const { data, error } = await (supabaseAdmin || supabase)
     .from('companies')
     .select('status, employee_count, address');
 

@@ -77,7 +77,9 @@ export default function App() {
       </Route>
 
       <Route path="/admin" element={<CompanyPortal />} />
+      <Route path="/:companySlug" element={<CompanyPortal />} />
       <Route path="/hr" element={<HRPortal />} />
+      <Route path="/:companySlug/hr" element={<HRPortal />} />
 
       <Route path="*" element={<div className="p-20 text-center text-gray-500 font-bold">404 - NOT FOUND</div>} />
     </Routes>

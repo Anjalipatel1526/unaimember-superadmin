@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { 
   Building2, Users, CalendarDays, CreditCard, Ticket, Settings, 
   LogOut, Lock, Mail, Eye, EyeOff, ShieldCheck, Menu, X, ArrowUpRight
@@ -16,6 +17,9 @@ import CompanySettings from './views/CompanySettings';
 const SESSION_KEY = 'unai_company_session';
 
 export default function CompanyPortal() {
+  const { companySlug } = useParams();
+  const navigate = useNavigate();
+
   const [session, setSession] = useState(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
 
@@ -37,6 +41,11 @@ export default function CompanyPortal() {
       try {
         const parsed = JSON.parse(saved);
         setSession(parsed);
+
+        const slug = (parsed.companyName || 'portal').toLowerCase().replace(/[^a-z0-9\s-]/g, '').trim().replace(/\s+/g, '-');
+        if (companySlug !== slug) {
+          navigate(`/${slug}`, { replace: true });
+        }
 
         // Fetch fresh company details from Supabase to prevent stale cache
         supabase
@@ -63,7 +72,7 @@ export default function CompanyPortal() {
       }
     }
     setCheckingAuth(false);
-  }, []);
+  }, [companySlug, navigate]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -73,6 +82,8 @@ export default function CompanyPortal() {
       const data = await loginCompany(email, password);
       localStorage.setItem(SESSION_KEY, JSON.stringify(data));
       setSession(data);
+      const slug = (data.companyName || 'portal').toLowerCase().replace(/[^a-z0-9\s-]/g, '').trim().replace(/\s+/g, '-');
+      navigate(`/${slug}`);
     } catch (err) {
       setError(err.message || 'Incorrect email or password.');
     } finally {
@@ -84,6 +95,7 @@ export default function CompanyPortal() {
     localStorage.removeItem(SESSION_KEY);
     setSession(null);
     setActiveTab('overview');
+    navigate('/admin');
   };
 
   const updateCompanyDetails = (newDetails) => {

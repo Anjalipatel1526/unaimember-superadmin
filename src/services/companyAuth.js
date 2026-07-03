@@ -1,9 +1,9 @@
-import { supabase } from './supabase';
+import { supabase, supabaseAdmin } from './supabase';
 
 export async function loginCompany(email, password) {
   try {
     // Try querying with password filter first (standard secure way)
-    const { data: creds, error } = await supabase
+    const { data: creds, error } = await (supabaseAdmin || supabase)
       .from('company_credentials')
       .select('*, companies(*)')
       .eq('login_email', email)
@@ -14,7 +14,7 @@ export async function loginCompany(email, password) {
     if (error) {
       // If column not found / cache issue, fallback to email-only query and client-side check
       if (error.code === 'PGRST204' || error.message?.includes('login_password') || error.message?.includes('schema cache')) {
-        const { data: fallbackCreds, error: fallbackError } = await supabase
+        const { data: fallbackCreds, error: fallbackError } = await (supabaseAdmin || supabase)
           .from('company_credentials')
           .select('*, companies(*)')
           .eq('login_email', email)
@@ -34,7 +34,7 @@ export async function loginCompany(email, password) {
         }
 
         // Update last_login_at
-        await supabase
+        await (supabaseAdmin || supabase)
           .from('company_credentials')
           .update({ last_login_at: new Date().toISOString() })
           .eq('id', fallbackCreds.id);
@@ -56,7 +56,7 @@ export async function loginCompany(email, password) {
     }
 
     // Update last_login_at
-    await supabase
+    await (supabaseAdmin || supabase)
       .from('company_credentials')
       .update({ last_login_at: new Date().toISOString() })
       .eq('id', creds.id);

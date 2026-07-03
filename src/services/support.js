@@ -1,8 +1,8 @@
-import { supabase } from './supabase';
+import { supabase, supabaseAdmin } from './supabase';
 
 // ── All tickets with company name ────────────────────────────
 export async function getTickets() {
-  const { data, error } = await supabase
+  const { data, error } = await (supabaseAdmin || supabase)
     .from('support_tickets')
     .select('*, companies ( name )')
     .order('created_at', { ascending: false });
@@ -13,7 +13,7 @@ export async function getTickets() {
 
 // ── Messages for a ticket ────────────────────────────────────
 export async function getTicketMessages(ticketId) {
-  const { data, error } = await supabase
+  const { data, error } = await (supabaseAdmin || supabase)
     .from('ticket_messages')
     .select('*')
     .eq('ticket_id', ticketId)
@@ -25,7 +25,7 @@ export async function getTicketMessages(ticketId) {
 
 // ── Send a message ───────────────────────────────────────────
 export async function sendMessage({ ticketId, senderName, senderRole, body }) {
-  const { data, error } = await supabase
+  const { data, error } = await (supabaseAdmin || supabase)
     .from('ticket_messages')
     .insert([{
       ticket_id:   ticketId,
@@ -42,7 +42,7 @@ export async function sendMessage({ ticketId, senderName, senderRole, body }) {
 
 // ── Update ticket status ─────────────────────────────────────
 export async function updateTicketStatus(id, status) {
-  const { data, error } = await supabase
+  const { data, error } = await (supabaseAdmin || supabase)
     .from('support_tickets')
     .update({ status })
     .eq('id', id)
@@ -72,7 +72,7 @@ export function subscribeToMessages(ticketId, callback) {
 
 // ── Get tickets for a specific company ────────────────────────
 export async function getCompanyTickets(companyId) {
-  const { data, error } = await supabase
+  const { data, error } = await (supabaseAdmin || supabase)
     .from('support_tickets')
     .select('*')
     .eq('company_id', companyId)
@@ -85,7 +85,7 @@ export async function getCompanyTickets(companyId) {
 // ── Create support ticket for a company ────────────────────────
 export async function createSupportTicket(companyId, { subject, priority }) {
   const ticketNumber = `TKT-${Math.floor(100000 + Math.random() * 900000)}`;
-  const { data, error } = await supabase
+  const { data, error } = await (supabaseAdmin || supabase)
     .from('support_tickets')
     .insert([{
       company_id: companyId,

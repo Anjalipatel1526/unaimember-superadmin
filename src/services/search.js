@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { supabase, supabaseAdmin } from './supabase';
 
 /**
  * Global search across companies, invoices, and support tickets.
@@ -11,21 +11,21 @@ export async function globalSearch(query) {
 
   const [companies, invoices, tickets] = await Promise.all([
     // Companies: search by name or email
-    supabase
+    (supabaseAdmin || supabase)
       .from('companies')
       .select('id, name, email, status')
       .or(`name.ilike.%${q}%,email.ilike.%${q}%`)
       .limit(5),
 
     // Invoices: search by invoice_number or joined company name
-    supabase
+    (supabaseAdmin || supabase)
       .from('invoices')
       .select('id, invoice_number, amount, status, companies(name)')
       .ilike('invoice_number', `%${q}%`)
       .limit(5),
 
     // Support tickets: search by ticket_number or subject
-    supabase
+    (supabaseAdmin || supabase)
       .from('support_tickets')
       .select('id, ticket_number, subject, status, companies(name)')
       .or(`ticket_number.ilike.%${q}%,subject.ilike.%${q}%`)

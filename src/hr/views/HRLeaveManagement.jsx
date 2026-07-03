@@ -16,7 +16,7 @@ function Modal({ open, onClose, title, children }) {
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
         <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
           <h3 className="text-base font-bold text-gray-900">{title}</h3>
-          <button onClick={onClose} className="btn-ghost w-8 h-8 flex items-center justify-center p-0"><X size={18}/></button>
+          <button onClick={onClose} className="btn-ghost w-8 h-8 flex items-center justify-center p-0"><X size={18} /></button>
         </div>
         <div className="px-6 py-6">{children}</div>
       </div>
@@ -132,9 +132,8 @@ export default function HRLeaveManagement({ companyId }) {
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                filter === f ? 'bg-[#4c58fa] text-white shadow-lg shadow-[#4c58fa]/20' : 'bg-white border border-gray-200 text-gray-600 hover:border-[#4c58fa]/30'
-              }`}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${filter === f ? 'bg-[#4c58fa] text-white shadow-lg shadow-[#4c58fa]/20' : 'bg-white border border-gray-200 text-gray-600 hover:border-[#4c58fa]/30'
+                }`}
             >
               {f}
             </button>

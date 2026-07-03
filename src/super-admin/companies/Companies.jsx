@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Download, Plus, X, Users, Trash2, ChevronRight, KeyRound, Copy, Check, Eye, EyeOff, RefreshCw, Building2 } from 'lucide-react';
-import { getCompaniesWithCredentials, createCompany, deleteCompany, resetCompanyPassword } from '../../services/companies';
+import { Search, Download, Plus, X, Users, Trash2, ChevronRight, KeyRound, Copy, Check, Eye, EyeOff, RefreshCw, Building2, Edit2 } from 'lucide-react';
+import { getCompaniesWithCredentials, createCompany, deleteCompany, resetCompanyPassword, updateCompany } from '../../services/companies';
 
 import ConfirmModal from '../../components/ConfirmModal';
 import CredentialsModal from '../../components/CredentialsModal';
@@ -73,6 +73,7 @@ export default function Companies() {
   const [copiedId,    setCopiedId]    = useState(null);  // tracks which cell was copied
   const [showPwdFor,  setShowPwdFor]  = useState(null);  // companyId whose password is revealed
   const [showFormPwd, setShowFormPwd] = useState(false);  // show/hide in form
+  const [editTarget,  setEditTarget]  = useState(null);  // null = create, company object = edit
 
   const load = useCallback(() => {
     setLoading(true);
@@ -136,21 +137,55 @@ export default function Companies() {
     }
   };
 
-  const handleCreate = async (e) => {
+  const handleEditClick = (company) => {
+    setEditTarget(company);
+    setForm({
+      name: company.name || '',
+      email: company.email || '',
+      phone: company.phone || '',
+      address: company.address || '',
+      employee_limit: company.employee_limit || 50,
+      payroll_enabled: company.payroll_enabled || false,
+      performance_enabled: company.performance_enabled || false,
+      logo_url: company.logo_url || '',
+      login_id: '',
+      login_password: '',
+    });
+    setShowModal(true);
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
     try {
-      const result = await createCompany({ ...form, status: 'Trial', payment_status: 'Pending' });
-      const company     = result.company     ?? result;
-      const credentials = result.credentials ?? null;
-      setCompanies(prev => [{ ...company, company_credentials: [{ login_email: credentials.email, login_password: credentials.password, is_active: true }] }, ...prev]);
-      setShowModal(false);
-      setForm(BLANK);
-      setShowFormPwd(false);
-      if (credentials) {
-        setCreatedCo(company);
-        setNewCreds(credentials);
-        setShowCreds(true);
+      if (editTarget) {
+        const updated = await updateCompany(editTarget.id, {
+          name: form.name,
+          email: form.email,
+          phone: form.phone,
+          address: form.address,
+          employee_limit: Number(form.employee_limit),
+          payroll_enabled: form.payroll_enabled,
+          performance_enabled: form.performance_enabled,
+          logo_url: form.logo_url || null,
+        });
+        setCompanies(prev => prev.map(c => c.id === editTarget.id ? { ...c, ...updated } : c));
+        setShowModal(false);
+        setForm(BLANK);
+        setEditTarget(null);
+      } else {
+        const result = await createCompany({ ...form, status: 'Trial', payment_status: 'Pending' });
+        const company     = result.company     ?? result;
+        const credentials = result.credentials ?? null;
+        setCompanies(prev => [{ ...company, company_credentials: [{ login_email: credentials.email, login_password: credentials.password, is_active: true }] }, ...prev]);
+        setShowModal(false);
+        setForm(BLANK);
+        setShowFormPwd(false);
+        if (credentials) {
+          setCreatedCo(company);
+          setNewCreds(credentials);
+          setShowCreds(true);
+        }
       }
     } catch (e) {
       alert('Error: ' + e.message);
@@ -184,7 +219,7 @@ export default function Companies() {
         </div>
         <div className="flex items-center gap-3">
           <button className="btn-secondary"><Download size={15}/>Export CSV</button>
-          <button onClick={() => setShowModal(true)} className="btn-primary"><Plus size={15}/>Add Company</button>
+          <button onClick={() => { setEditTarget(null); setForm(BLANK); setShowModal(true); }} className="btn-primary"><Plus size={15}/>Add Company</button>
         </div>
       </div>
 
@@ -312,6 +347,12 @@ export default function Companies() {
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-1 justify-end">
                           <button
+                            onClick={(e) => { e.stopPropagation(); handleEditClick(c); }}
+                            className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-[#4c58fa] hover:bg-[#EEF0FF] transition-all"
+                            title="Edit Company">
+                            <Edit2 size={15}/>
+                          </button>
+                          <button
                             onClick={(e) => { e.stopPropagation(); setDeleteId(c.id); }}
                             className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-all"
                             title="Delete Company">
@@ -338,9 +379,9 @@ export default function Companies() {
         </div>
       </div>
 
-      {/* Add Company Modal */}
-      <Modal open={showModal} onClose={()=>{setShowModal(false);setForm(BLANK);}} title="Add New Company">
-        <form className="flex flex-col gap-5" onSubmit={handleCreate}>
+      {/* Add / Edit Company Modal */}
+      <Modal open={showModal} onClose={()=>{setShowModal(false);setForm(BLANK);setEditTarget(null);}} title={editTarget ? "Edit Company" : "Add New Company"}>
+        <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Company Name">
               <input className="input" value={form.name} onChange={e=>set('name',e.target.value)} required />
@@ -404,46 +445,48 @@ export default function Companies() {
           </div>
 
           {/* ── Login Credentials ── */}
-          <div className="flex flex-col gap-3 pt-2 border-t border-gray-100">
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
-              <KeyRound size={12}/> Portal Login Credentials
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Field label="Login ID (Email)">
-                <input
-                  type="email"
-                  className="input font-mono"
-                  value={form.login_id}
-                  onChange={e => set('login_id', e.target.value)}
-                  required
-                  placeholder="admin@company.com"
-                />
-              </Field>
-              <Field label="Password">
-                <div className="relative">
+          {!editTarget && (
+            <div className="flex flex-col gap-3 pt-2 border-t border-gray-100">
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
+                <KeyRound size={12}/> Portal Login Credentials
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Field label="Login ID (Email)">
                   <input
-                    type={showFormPwd ? 'text' : 'password'}
-                    className="input font-mono pr-20"
-                    value={form.login_password}
-                    onChange={e => set('login_password', e.target.value)}
+                    type="email"
+                    className="input font-mono"
+                    value={form.login_id}
+                    onChange={e => set('login_id', e.target.value)}
                     required
-                    placeholder="••••••••••••"
+                    placeholder="admin@company.com"
                   />
-                  <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                    <button type="button" onClick={() => setShowFormPwd(s => !s)}
-                      className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors">
-                      {showFormPwd ? <EyeOff size={14}/> : <Eye size={14}/>}
-                    </button>
-                    <button type="button" onClick={autoGenPassword}
-                      className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-[#4c58fa] hover:bg-[#EEF0FF] transition-colors" title="Auto-generate">
-                      <RefreshCw size={13}/>
-                    </button>
+                </Field>
+                <Field label="Password">
+                  <div className="relative">
+                    <input
+                      type={showFormPwd ? 'text' : 'password'}
+                      className="input font-mono pr-20"
+                      value={form.login_password}
+                      onChange={e => set('login_password', e.target.value)}
+                      required
+                      placeholder="••••••••••••"
+                    />
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                      <button type="button" onClick={() => setShowFormPwd(s => !s)}
+                        className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors">
+                        {showFormPwd ? <EyeOff size={14}/> : <Eye size={14}/>}
+                      </button>
+                      <button type="button" onClick={autoGenPassword}
+                        className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-[#4c58fa] hover:bg-[#EEF0FF] transition-colors" title="Auto-generate">
+                        <RefreshCw size={13}/>
+                      </button>
+                    </div>
                   </div>
-                </div>
-              </Field>
+                </Field>
+              </div>
+              <p className="text-xs text-gray-400">Specify the login ID (email) and password that this company will use to log in to their dashboard.</p>
             </div>
-            <p className="text-xs text-gray-400">Specify the login ID (email) and password that this company will use to log in to their dashboard.</p>
-          </div>
+          )}
 
           <div className="flex flex-col gap-3 pt-2 border-t border-gray-100">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Module Access</p>
@@ -451,9 +494,9 @@ export default function Companies() {
             <Toggle label="Enable Performance Module" value={form.performance_enabled} onChange={v=>set('performance_enabled',v)}/>
           </div>
           <div className="flex items-center justify-end gap-3 pt-2 border-t border-gray-100">
-            <button type="button" onClick={()=>{setShowModal(false);setForm(BLANK);setShowFormPwd(false);}} className="btn-secondary">Cancel</button>
+            <button type="button" onClick={()=>{setShowModal(false);setForm(BLANK);setEditTarget(null);setShowFormPwd(false);}} className="btn-secondary">Cancel</button>
             <button type="submit" disabled={saving} className="btn-primary">
-              {saving ? 'Creating…' : 'Create Company'}
+              {saving ? (editTarget ? 'Saving…' : 'Creating…') : (editTarget ? 'Save Changes' : 'Create Company')}
             </button>
           </div>
         </form>

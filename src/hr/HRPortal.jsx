@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
   Users, LayoutDashboard, CalendarDays, UserPlus, Award, Settings,
   LogOut, Lock, Mail, Eye, EyeOff, Menu, X, ArrowUpRight,
@@ -16,6 +17,9 @@ import HRAttendance from './views/HRAttendance';
 const SESSION_KEY = 'unai_hr_session';
 
 export default function HRPortal() {
+  const { companySlug } = useParams();
+  const navigate = useNavigate();
+
   const [session, setSession] = useState(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
 
@@ -37,6 +41,11 @@ export default function HRPortal() {
       try {
         const parsed = JSON.parse(saved);
         setSession(parsed);
+
+        const slug = (parsed.companyName || 'portal').toLowerCase().replace(/[^a-z0-9\s-]/g, '').trim().replace(/\s+/g, '-');
+        if (companySlug !== slug) {
+          navigate(`/${slug}/hr`, { replace: true });
+        }
 
         supabase
           .from('companies')
@@ -62,7 +71,7 @@ export default function HRPortal() {
       }
     }
     setCheckingAuth(false);
-  }, []);
+  }, [companySlug, navigate]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -72,6 +81,8 @@ export default function HRPortal() {
       const data = await loginCompany(email, password);
       localStorage.setItem(SESSION_KEY, JSON.stringify(data));
       setSession(data);
+      const slug = (data.companyName || 'portal').toLowerCase().replace(/[^a-z0-9\s-]/g, '').trim().replace(/\s+/g, '-');
+      navigate(`/${slug}/hr`);
     } catch (err) {
       setError(err.message || 'Incorrect email or password.');
     } finally {
@@ -83,6 +94,7 @@ export default function HRPortal() {
     localStorage.removeItem(SESSION_KEY);
     setSession(null);
     setActiveTab('overview');
+    navigate('/hr');
   };
 
   if (checkingAuth) {

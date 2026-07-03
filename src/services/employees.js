@@ -71,6 +71,21 @@ export async function updateEmployee(id, payload) {
 
 // ── Delete employee ──────────────────────────────────────────
 export async function deleteEmployee(id) {
+  // First, delete dependent attendance logs
+  const { error: attendanceError } = await supabase
+    .from('attendance')
+    .delete()
+    .eq('employee_id', id);
+  if (attendanceError) throw attendanceError;
+
+  // Next, delete dependent leave requests
+  const { error: leaveError } = await supabase
+    .from('leave_requests')
+    .delete()
+    .eq('employee_id', id);
+  if (leaveError) throw leaveError;
+
+  // Finally, delete the employee record
   const { error } = await supabase.from('employees').delete().eq('id', id);
   if (error) throw error;
 }

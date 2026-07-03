@@ -1,8 +1,8 @@
-import { supabase } from './supabase';
+import { supabase, supabaseAdmin } from './supabase';
 
 // ── All invoices ─────────────────────────────────────────────
 export async function getInvoices() {
-  const { data, error } = await supabase
+  const { data, error } = await (supabaseAdmin || supabase)
     .from('invoices')
     .select('*, companies ( name )')
     .order('created_at', { ascending: false });
@@ -14,7 +14,7 @@ export async function getInvoices() {
 // ── Billing KPI aggregates (handles RLS recursion gracefully) ─
 export async function getBillingStats() {
   try {
-    const { data: all, error } = await supabase
+    const { data: all, error } = await (supabaseAdmin || supabase)
       .from('invoices')
       .select('amount, status, paid_at');
 
@@ -43,7 +43,7 @@ export async function getBillingStats() {
 
 // ── Create invoice ───────────────────────────────────────────
 export async function createInvoice(payload) {
-  const { data, error } = await supabase
+  const { data, error } = await (supabaseAdmin || supabase)
     .from('invoices')
     .insert([payload])
     .select('*, companies ( name )')
@@ -58,7 +58,7 @@ export async function updateInvoiceStatus(id, status) {
   const patch = { status };
   if (status === 'Paid') patch.paid_at = new Date().toISOString();
 
-  const { data, error } = await supabase
+  const { data, error } = await (supabaseAdmin || supabase)
     .from('invoices')
     .update(patch)
     .eq('id', id)
@@ -71,7 +71,7 @@ export async function updateInvoiceStatus(id, status) {
 
 // ── Revenue snapshots for chart ──────────────────────────────
 export async function getRevenueSnapshots() {
-  const { data, error } = await supabase
+  const { data, error } = await (supabaseAdmin || supabase)
     .from('revenue_snapshots')
     .select('*')
     .order('month', { ascending: true });
@@ -82,7 +82,7 @@ export async function getRevenueSnapshots() {
 
 // ── Generate next invoice number ─────────────────────────────
 export async function nextInvoiceNumber() {
-  const { count } = await supabase
+  const { count } = await (supabaseAdmin || supabase)
     .from('invoices')
     .select('id', { count: 'exact', head: true });
 

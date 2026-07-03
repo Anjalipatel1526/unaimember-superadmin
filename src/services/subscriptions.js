@@ -1,8 +1,8 @@
-import { supabase } from './supabase';
+import { supabase, supabaseAdmin } from './supabase';
 
 // ── All plans ────────────────────────────────────────────────
 export async function getPlans() {
-  const { data, error } = await supabase
+  const { data, error } = await (supabaseAdmin || supabase)
     .from('subscription_plans')
     .select('*')
     .order('price', { ascending: true });
@@ -13,7 +13,7 @@ export async function getPlans() {
 
 // ── Active subscription count ─────────────────────────────────
 export async function getActiveSubscriptionCount() {
-  const { count, error } = await supabase
+  const { count, error } = await (supabaseAdmin || supabase)
     .from('companies')
     .select('id', { count: 'exact', head: true })
     .eq('status', 'Active');
@@ -24,7 +24,7 @@ export async function getActiveSubscriptionCount() {
 
 // ── Update plan ──────────────────────────────────────────────
 export async function updatePlan(id, payload) {
-  const { data, error } = await supabase
+  const { data, error } = await (supabaseAdmin || supabase)
     .from('subscription_plans')
     .update(payload)
     .eq('id', id)
