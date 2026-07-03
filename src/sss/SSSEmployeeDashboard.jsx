@@ -3,7 +3,7 @@ import {
   Clock, Calendar, FileText, CheckCircle, XCircle, LogOut, ArrowRight,
   TrendingUp, Award, User, ChevronRight, Briefcase, Plus, CalendarDays, Activity,
   ClipboardList, CreditCard, Phone, Mail, Shield, Settings, LayoutDashboard, Search, Bell, Archive, Trash2, Paperclip,
-  CheckSquare, Star, Play, Pause, Send, Upload, Eye, EyeOff
+  CheckSquare, Star, Play, Pause, Send, Upload, Eye, EyeOff, AlertTriangle
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
@@ -553,9 +553,9 @@ export default function SSSEmployeeDashboard() {
   // Initialize input states when selectedEmployee changes
   useEffect(() => {
     if (selectedEmployee) {
-      setEmailInput(selectedEmployee.email || '');
-      setPhoneInput(selectedEmployee.phone || '');
       const meta = getMetadata(selectedEmployee);
+      setEmailInput(meta.email || selectedEmployee.email || '');
+      setPhoneInput(selectedEmployee.phone || '');
       setDobInput(meta.date_of_birth || '');
       setProfilePicInput(meta.profile_picture || '');
     }
@@ -590,7 +590,11 @@ export default function SSSEmployeeDashboard() {
 
     try {
       const match = employees.find(
-        emp => emp.email?.toLowerCase().trim() === loginEmail.toLowerCase().trim()
+        emp => {
+          const meta = getMetadata(emp);
+          const email = (meta.email || emp.email || '').toLowerCase().trim();
+          return email === loginEmail.toLowerCase().trim();
+        }
       );
 
       if (!match) {
@@ -911,6 +915,7 @@ export default function SSSEmployeeDashboard() {
       const currentMeta = getMetadata(selectedEmployee);
       const updatedMeta = {
         ...currentMeta,
+        email: emailInput,
         date_of_birth: dobInput,
         profile_picture: profilePicInput
       };
@@ -918,7 +923,6 @@ export default function SSSEmployeeDashboard() {
       const { error: updateErr } = await supabase
         .from('employees')
         .update({
-          email: emailInput,
           phone: phoneInput,
           pf_number: JSON.stringify(updatedMeta)
         })
@@ -929,7 +933,6 @@ export default function SSSEmployeeDashboard() {
       // Update local state
       const updatedEmp = {
         ...selectedEmployee,
-        email: emailInput,
         phone: phoneInput,
         pf_number: JSON.stringify(updatedMeta)
       };
@@ -1115,7 +1118,15 @@ export default function SSSEmployeeDashboard() {
             <p className="text-xs text-gray-400">Story Seed Studio Profile Directory</p>
           </div>
 
-          {loading ? (
+          {employees.length === 0 ? (
+            <div className="p-5 bg-amber-50 border border-amber-100 rounded-2xl text-center space-y-3">
+              <AlertTriangle className="w-8 h-8 text-amber-600 mx-auto animate-bounce" />
+              <p className="text-xs font-bold text-amber-800 leading-tight">No Employees Initialized</p>
+              <p className="text-[11px] text-amber-600/90 leading-relaxed">
+                The employee registry is currently empty. Please log in to the <a href="/#/sss/admin" className="font-extrabold underline text-[#4F6AF7] hover:text-[#3d58e5]">SSS Admin Portal</a> to add employees first.
+              </p>
+            </div>
+          ) : loading ? (
             <div className="py-8 flex flex-col items-center justify-center gap-3">
               <div className="w-8 h-8 border-4 border-[#4F6AF7] border-t-transparent rounded-full animate-spin" />
               <p className="text-xs text-gray-500 font-semibold">Authenticating...</p>
