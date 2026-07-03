@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
-  BarChart, Bar, PieChart as RPieChart, Pie, Cell, Legend
+  BarChart, Bar, PieChart as RPieChart, Pie, Cell, Legend, ReferenceLine
 } from 'recharts';
 import { getEmployeeStats, getCompanyAccess } from '../../services/employees';
 
@@ -108,14 +108,29 @@ export default function CompanyOverview({ companyId, companyDetails }) {
   }, [companyId]);
 
   // ── Derived data for charts ─────────────────────────────────
-  const staffingData = [
-    { name: 'Jan', value: Math.max(0, stats.total - 4) },
-    { name: 'Feb', value: Math.max(0, stats.total - 3) },
-    { name: 'Mar', value: Math.max(0, stats.total - 2) },
-    { name: 'Apr', value: Math.max(0, stats.total - 1) },
-    { name: 'May', value: stats.total },
-    { name: 'Jun', value: stats.total },
-  ];
+  // Build staffing growth from real joiningTrend — cumulative headcount over time
+  const staffingData = (() => {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const currentMonth = new Date().getMonth(); // 0-indexed
+
+    if (stats.joiningTrend && stats.joiningTrend.length > 0) {
+      // Use actual joining data — build a cumulative sum
+      let runningTotal = Math.max(0, stats.total - stats.joiningTrend.reduce((s, d) => s + (d.count || 0), 0));
+      return stats.joiningTrend.map(d => {
+        runningTotal += (d.count || 0);
+        return { name: d.name, value: runningTotal };
+      });
+    }
+
+    // Fallback: spread total across last 6 months with slight growth curve
+    const total = stats.total || 0;
+    const last6 = months.slice(Math.max(0, currentMonth - 5), currentMonth + 1);
+    return last6.map((m, i) => ({
+      name: m,
+      value: i === last6.length - 1 ? total : Math.max(1, Math.round(total * (0.6 + i * 0.08)))
+    }));
+  })();
+
 
   // Revenue / Payroll data by department
   const deptPayrollData = Object.entries(stats.departmentSalary)
@@ -186,18 +201,43 @@ export default function CompanyOverview({ companyId, companyDetails }) {
           <h3 className="text-xl font-bold text-gray-900 mb-6">Staffing Growth</h3>
           <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={staffingData}>
+              <AreaChart data={staffingData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorVal" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#4c58fa" stopOpacity={0.15}/>
                     <stop offset="95%" stopColor="#4c58fa" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} dy={10} />
-                <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{fill: '#94a3b8', fontSize: 12}}
+                  domain={[0, dataMax => Math.max(dataMax + 1, 5)]}
+                  allowDecimals={false}
+                />
                 <Tooltip content={<CustomTooltip />} cursor={{stroke: '#4c58fa', strokeWidth: 2, strokeDasharray: '4 4'}} />
-                <Area type="monotone" dataKey="value" name="Headcount" stroke="#4c58fa" strokeWidth={4} fillOpacity={1} fill="url(#colorVal)" />
+                {stats.total > 0 && (
+                  <ReferenceLine
+                    y={stats.total}
+                    stroke="#4c58fa"
+                    strokeDasharray="4 4"
+                    strokeOpacity={0.35}
+                    label={{ value: `Current: ${stats.total}`, position: 'insideTopRight', fontSize: 10, fill: '#4c58fa', fontWeight: 700 }}
+                  />
+                )}
+                <Area
+                  type="monotone"
+                  dataKey="value"
+                  name="Headcount"
+                  stroke="#4c58fa"
+                  strokeWidth={3}
+                  fillOpacity={1}
+                  fill="url(#colorVal)"
+                  dot={{ fill: '#4c58fa', r: 4, strokeWidth: 2, stroke: '#fff' }}
+                  activeDot={{ r: 6, fill: '#4c58fa', stroke: '#fff', strokeWidth: 2 }}
+                />
               </AreaChart>
             </ResponsiveContainer>
           </div>
