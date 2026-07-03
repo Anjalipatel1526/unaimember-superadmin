@@ -818,6 +818,9 @@ export default function SSSEmployeeDashboard() {
         const sx = (img.width - minSide) / 2;
         const sy = (img.height - minSide) / 2;
         
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, size, size);
+        
         ctx.drawImage(img, sx, sy, minSide, minSide, 0, 0, size, size);
         const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
         
@@ -2397,7 +2400,7 @@ export default function SSSEmployeeDashboard() {
             <div className="bg-white w-full max-w-[760px] rounded-3xl shadow-2xl flex flex-col md:flex-row overflow-hidden animate-slideUp text-left" onClick={e => e.stopPropagation()}>
               
               {/* Left Side: Profile Picture (Full Height & Width of left section) */}
-              <div className="w-full md:w-[280px] bg-gradient-to-br from-indigo-50/50 to-indigo-100/30 border-r border-gray-100/85 shrink-0 relative overflow-hidden group/modalSelect min-h-[350px] md:min-h-[450px]">
+              <div className="w-full md:w-[280px] bg-gray-100 border-r border-gray-100/85 shrink-0 relative overflow-hidden min-h-[350px] md:min-h-[450px]">
                 <label className="absolute inset-0 cursor-pointer block w-full h-full">
                   <input
                     type="file"
@@ -2409,28 +2412,25 @@ export default function SSSEmployeeDashboard() {
                     <img 
                       src={meta.profile_picture} 
                       alt="Profile" 
-                      className="w-full h-full object-cover transition-all group-hover/modalSelect:scale-105 duration-300"
+                      className="w-full h-full object-cover"
                       onError={(e) => { e.currentTarget.src = ''; }}
                     />
                   ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-[#4F6AF7] to-[#8094FF] text-white text-5xl font-extrabold flex items-center justify-center transition-all group-hover/modalSelect:scale-105 duration-300">
+                    <div className="w-full h-full bg-gradient-to-br from-[#4F6AF7] to-[#8094FF] text-white text-5xl font-extrabold flex items-center justify-center">
                       {emp.first_name?.[0]}{emp.last_name?.[0]}
                     </div>
                   )}
                   
-                  {/* Camera icon overlay (Sleek blur + dark overlay) */}
-                  <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] flex flex-col items-center justify-center opacity-0 group-hover/modalSelect:opacity-100 transition-all duration-300">
-                    <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center mb-2 border border-white/30 shadow-md">
-                      <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                      </svg>
-                    </div>
-                    <span className="text-[10px] text-white font-extrabold tracking-wider uppercase drop-shadow-md">Change Photo</span>
+                  {/* Floating Camera Icon Button on Top Right (Never shades or blurs the photo) */}
+                  <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm hover:bg-white text-gray-700 w-10 h-10 rounded-full flex items-center justify-center shadow-lg border border-gray-200 transition-all hover:scale-110 active:scale-95 z-20">
+                    <svg className="w-5 h-5 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
                   </div>
 
                   {/* Employee Name & Designation overlay at bottom (sleek gradient background for high readability) */}
-                  <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-6 text-left flex flex-col justify-end text-white pointer-events-none">
+                  <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/60 to-transparent p-6 text-left flex flex-col justify-end text-white pointer-events-none">
                     <h3 className="font-black text-lg tracking-tight text-white leading-tight">{emp.first_name} {emp.last_name}</h3>
                     <p className="text-[11px] text-indigo-200 font-bold mt-1 uppercase tracking-widest">{emp.designation || 'Specialist'}</p>
                   </div>
