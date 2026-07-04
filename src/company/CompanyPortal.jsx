@@ -5,7 +5,7 @@ import {
   LogOut, Lock, Mail, Eye, EyeOff, ShieldCheck, Menu, X, ArrowUpRight
 } from 'lucide-react';
 import { loginCompany } from '../services/companyAuth';
-import { supabase } from '../services/supabase';
+import { supabase, supabaseAdmin } from '../services/supabase';
 
 import CompanyOverview from './views/CompanyOverview';
 import CompanyEmployees from './views/CompanyEmployees';
@@ -48,7 +48,7 @@ export default function CompanyPortal() {
         }
 
         // Fetch fresh company details from Supabase to prevent stale cache
-        supabase
+        (supabaseAdmin || supabase)
           .from('companies')
           .select('*')
           .eq('id', parsed.companyId)

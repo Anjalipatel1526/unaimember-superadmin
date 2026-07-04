@@ -6,7 +6,7 @@ import {
   BriefcaseBusiness, ClipboardList, TrendingUp
 } from 'lucide-react';
 import { loginCompany } from '../services/companyAuth';
-import { supabase } from '../services/supabase';
+import { supabase, supabaseAdmin } from '../services/supabase';
 
 import HROverview from './views/HROverview';
 import HRLeaveManagement from './views/HRLeaveManagement';
@@ -47,7 +47,7 @@ export default function HRPortal() {
           navigate(`/${slug}/hr`, { replace: true });
         }
 
-        supabase
+        (supabaseAdmin || supabase)
           .from('companies')
           .select('*')
           .eq('id', parsed.companyId)

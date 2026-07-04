@@ -1,7 +1,7 @@
-import { supabase } from './supabase';
+import { supabase, supabaseAdmin } from './supabase';
 
 export async function getNotifications() {
-  const { data, error } = await supabase
+  const { data, error } = await (supabaseAdmin || supabase)
     .from('audit_logs')
     .select('id, type, action, target, user_name, created_at, outcome')
     .order('created_at', { ascending: false })
@@ -13,7 +13,7 @@ export async function getNotifications() {
 
 export async function getUnreadCount() {
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-  const { count, error } = await supabase
+  const { count, error } = await (supabaseAdmin || supabase)
     .from('audit_logs')
     .select('id', { count: 'exact', head: true })
     .gte('created_at', since);

@@ -1,8 +1,8 @@
-import { supabase } from './supabase';
+import { supabase, supabaseAdmin } from './supabase';
 
 // ── All logs ─────────────────────────────────────────────────
 export async function getAuditLogs({ company, role, from, to } = {}) {
-  let query = supabase
+  let query = (supabaseAdmin || supabase)
     .from('audit_logs')
     .select('*')
     .order('created_at', { ascending: false });
@@ -19,7 +19,7 @@ export async function getAuditLogs({ company, role, from, to } = {}) {
 
 // ── Insert a log entry ────────────────────────────────────────
 export async function createLog({ type, userName, userRole, action, target, outcome = 'Success', metadata }) {
-  const { error } = await supabase
+  const { error } = await (supabaseAdmin || supabase)
     .from('audit_logs')
     .insert([{ type, user_name: userName, user_role: userRole, action, target, outcome, metadata }]);
 

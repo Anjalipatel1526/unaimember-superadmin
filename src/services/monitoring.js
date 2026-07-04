@@ -1,8 +1,8 @@
-import { supabase } from './supabase';
+import { supabase, supabaseAdmin } from './supabase';
 
 // ── Latest snapshot ───────────────────────────────────────────
 export async function getLatestMetrics() {
-  const { data, error } = await supabase
+  const { data, error } = await (supabaseAdmin || supabase)
     .from('system_metrics')
     .select('*')
     .order('recorded_at', { ascending: false })
@@ -15,7 +15,7 @@ export async function getLatestMetrics() {
 
 // ── Last N snapshots for chart ────────────────────────────────
 export async function getMetricsHistory(limit = 24) {
-  const { data, error } = await supabase
+  const { data, error } = await (supabaseAdmin || supabase)
     .from('system_metrics')
     .select('cpu_load, api_response_ms, active_sessions, recorded_at')
     .order('recorded_at', { ascending: true })
@@ -27,7 +27,7 @@ export async function getMetricsHistory(limit = 24) {
 
 // ── Insert snapshot (call from your server/cron) ──────────────
 export async function recordMetrics(payload) {
-  const { error } = await supabase
+  const { error } = await (supabaseAdmin || supabase)
     .from('system_metrics')
     .insert([payload]);
 

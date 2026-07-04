@@ -1,8 +1,8 @@
-import { supabase } from './supabase';
+import { supabase, supabaseAdmin } from './supabase';
 
 // ── All features ─────────────────────────────────────────────
 export async function getFeatures() {
-  const { data, error } = await supabase
+  const { data, error } = await (supabaseAdmin || supabase)
     .from('features')
     .select('*')
     .order('title', { ascending: true });
@@ -13,7 +13,7 @@ export async function getFeatures() {
 
 // ── Toggle a feature on/off ───────────────────────────────────
 export async function toggleFeature(id, enabled) {
-  const { data, error } = await supabase
+  const { data, error } = await (supabaseAdmin || supabase)
     .from('features')
     .update({ enabled })
     .eq('id', id)
