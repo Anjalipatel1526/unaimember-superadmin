@@ -1,8 +1,8 @@
-import { supabase } from './supabase';
+import { supabase, supabaseAdmin } from './supabase';
 
 // ── Get all employees for a specific company ──────────────────
 export async function getEmployees(companyId) {
-  const { data, error } = await supabase
+  const { data, error } = await (supabaseAdmin || supabase)
     .from('employees')
     .select('*')
     .eq('company_id', companyId)
@@ -35,7 +35,7 @@ export async function getEmployees(companyId) {
 
 // ── Get single employee ───────────────────────────────────────
 export async function getEmployee(id) {
-  const { data, error } = await supabase
+  const { data, error } = await (supabaseAdmin || supabase)
     .from('employees')
     .select('*')
     .eq('id', id)
@@ -79,7 +79,7 @@ export async function createEmployee(companyId, payload) {
     address:         payload.address         || null,
   };
 
-  const { data, error } = await supabase
+  const { data, error } = await (supabaseAdmin || supabase)
     .from('employees')
     .insert([{
       company_id:      companyId,
@@ -113,7 +113,7 @@ export async function createEmployee(companyId, payload) {
 // ── Update employee ──────────────────────────────────────────
 export async function updateEmployee(id, payload) {
   // Fetch current metadata to preserve other properties
-  const { data: current, error: fetchErr } = await supabase
+  const { data: current, error: fetchErr } = await (supabaseAdmin || supabase)
     .from('employees')
     .select('pf_number')
     .eq('id', id)
@@ -152,7 +152,7 @@ export async function updateEmployee(id, payload) {
     pf_number:    JSON.stringify(updatedMeta),
   };
 
-  const { data, error } = await supabase
+  const { data, error } = await (supabaseAdmin || supabase)
     .from('employees')
     .update(dbPayload)
     .eq('id', id)
@@ -177,43 +177,61 @@ export async function updateEmployee(id, payload) {
 // ── Delete employee ──────────────────────────────────────────
 export async function deleteEmployee(id) {
   // First, delete dependent attendance logs
-  const { error: attendanceError } = await supabase
+  const { error: attendanceError } = await (supabaseAdmin || supabase)
     .from('attendance')
     .delete()
     .eq('employee_id', id);
   if (attendanceError) throw attendanceError;
 
   // Next, delete dependent leave requests
-  const { error: leaveError } = await supabase
+  const { error: leaveError } = await (supabaseAdmin || supabase)
     .from('leave_requests')
     .delete()
     .eq('employee_id', id);
   if (leaveError) throw leaveError;
 
   // Finally, delete the employee record
-  const { error } = await supabase.from('employees').delete().eq('id', id);
+  const { error } = await (supabaseAdmin || supabase).from('employees').delete().eq('id', id);
   if (error) throw error;
 }
 
 // ── Get employee stats for a company ─────────────────────────
 export async function getEmployeeStats(companyId) {
-  const { data, error } = await supabase
+  const { data, error } = await (supabaseAdmin || supabase)
     .from('employees')
-    .select('emp_status, employment_type, department, salary, date_of_joining')
+    .select('*')
     .eq('company_id', companyId);
 
   if (error) throw error;
 
-  const total    = data.length;
-  const active   = data.filter(e => e.emp_status === 'Active').length;
-  const inactive = data.filter(e => e.emp_status === 'Inactive').length;
-  const onLeave  = data.filter(e => e.emp_status === 'On Leave').length;
+  const parsedData = (data ?? []).map(emp => {
+    let meta = {};
+    if (emp.pf_number) {
+      try {
+        meta = JSON.parse(emp.pf_number);
+      } catch (e) {
+        meta = {};
+      }
+    }
+    return {
+      emp_status:      meta.status          || emp.emp_status || (emp.is_active ? 'Active' : 'Inactive'),
+      employment_type: meta.employment_type || 'Full-Time',
+      department:      meta.department      || null,
+      salary:          emp.basic_salary     || 0,
+      date_of_joining: emp.joining_date     || null,
+    };
+  });
 
-  const departments = [...new Set(data.map(e => e.department).filter(Boolean))];
+  const total    = parsedData.length;
+  const active   = parsedData.filter(e => e.emp_status === 'Active').length;
+  const inactive = parsedData.filter(e => e.emp_status === 'Inactive').length;
+  const onLeave  = parsedData.filter(e => e.emp_status === 'On Leave').length;
+
+  const departments = [...new Set(parsedData.map(e => e.department).filter(Boolean))];
 
   // Employment type breakdown
   const employmentTypes = {};
-  data.forEach(e => {
+  parsedData.forEach(e => {
     const t = e.employment_type || 'Unknown';
     employmentTypes[t] = (employmentTypes[t] || 0) + 1;
   });
@@ -221,14 +239,14 @@ export async function getEmployeeStats(companyId) {
   // Department-wise salary breakdown (monthly payroll cost)
   const departmentSalary = {};
   const departmentCount = {};
-  data.forEach(e => {
+  parsedData.forEach(e => {
     const dept = e.department || 'General';
     departmentSalary[dept] = (departmentSalary[dept] || 0) + (e.salary || 0);
     departmentCount[dept] = (departmentCount[dept] || 0) + 1;
   });
 
   // Total monthly payroll
-  const totalPayroll = data.reduce((sum, e) => sum + (e.salary || 0), 0);
+  const totalPayroll = parsedData.reduce((sum, e) => sum + (e.salary || 0), 0);
 
   // Monthly joining trend (last 6 months)
   const now = new Date();
@@ -238,7 +256,7 @@ export async function getEmployeeStats(companyId) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const month = d.getMonth();
     const year = d.getFullYear();
-    const count = data.filter(e => {
+    const count = parsedData.filter(e => {
       if (!e.date_of_joining) return false;
       const jd = new Date(e.date_of_joining);
       return jd.getMonth() === month && jd.getFullYear() === year;
@@ -258,7 +276,7 @@ export async function getEmployeeStats(companyId) {
 
 // ── Get / Upsert company access controls ─────────────────────
 export async function getCompanyAccess(companyId) {
-  const { data, error } = await supabase
+  const { data, error } = await (supabaseAdmin || supabase)
     .from('company_access_controls')
     .select('*')
     .eq('company_id', companyId)
@@ -269,7 +287,7 @@ export async function getCompanyAccess(companyId) {
 }
 
 export async function upsertCompanyAccess(companyId, controls) {
-  const { data, error } = await supabase
+  const { data, error } = await (supabaseAdmin || supabase)
     .from('company_access_controls')
     .upsert({ company_id: companyId, ...controls }, { onConflict: 'company_id' })
     .select()
