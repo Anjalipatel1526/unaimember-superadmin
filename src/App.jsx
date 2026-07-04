@@ -91,6 +91,15 @@ export default function App() {
       <Route path="/sss/EmployeeDetail" element={<SSSEmployeeDashboard />} />
       <Route path="/sss/Employeedetail" element={<SSSEmployeeDashboard />} />
 
+      {/* Generic employee portal routes for other companies */}
+      <Route path="/:companySlug/Employee Details" element={<SSSEmployeeDashboard />} />
+      <Route path="/:companySlug/Employee details" element={<SSSEmployeeDashboard />} />
+      <Route path="/:companySlug/Employee Detail" element={<SSSEmployeeDashboard />} />
+      <Route path="/:companySlug/Employee detail" element={<SSSEmployeeDashboard />} />
+      <Route path="/:companySlug/EmployeeDetail" element={<SSSEmployeeDashboard />} />
+      <Route path="/:companySlug/Employeedetail" element={<SSSEmployeeDashboard />} />
+      <Route path="/:companySlug/employee" element={<SSSEmployeeDashboard />} />
+
       <Route path="/sss/manager" element={<SSSManagerDashboard />} />
 
       <Route path="*" element={<div className="p-20 text-center text-gray-500 font-bold">404 - NOT FOUND</div>} />

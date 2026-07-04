@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import { 
   Clock, Calendar, FileText, CheckCircle, XCircle, LogOut, ArrowRight,
   TrendingUp, Award, User, ChevronRight, Briefcase, Plus, CalendarDays, Activity,
@@ -13,6 +14,7 @@ import { supabase as supabaseAnon, supabaseAdmin } from '../services/supabase';
 const supabase = supabaseAdmin || supabaseAnon;
 
 export default function SSSEmployeeDashboard() {
+  const { companySlug } = useParams();
   const [company, setCompany] = useState(null);
   const [employees, setEmployees] = useState([]);
   const [departments, setDepartments] = useState([]);
@@ -110,16 +112,30 @@ export default function SSSEmployeeDashboard() {
       setLoading(true);
       setError(null);
 
-      // Fetch Story Seed company details
-      const { data: companyData, error: companyErr } = await supabase
-        .from('companies')
-        .select('*')
-        .ilike('name', '%story%seed%')
-        .maybeSingle();
+      // Resolve company details dynamically by slug or fallback to Story Seed Studio
+      let companyData = null;
+      if (companySlug && companySlug !== 'sss') {
+        const { data: cos, error: cosErr } = await supabase.from('companies').select('*');
+        if (cosErr) throw cosErr;
+        companyData = (cos || []).find(c => {
+          const s = c.name.toLowerCase().replace(/[^a-z0-9\s-]/g, '').trim().replace(/\s+/g, '-');
+          return s === companySlug;
+        });
+        if (!companyData) {
+          throw new Error(`Company details for slug "${companySlug}" not found.`);
+        }
+      } else {
+        const { data: sssCompany, error: companyErr } = await supabase
+          .from('companies')
+          .select('*')
+          .ilike('name', '%story%seed%')
+          .maybeSingle();
 
-      if (companyErr) throw companyErr;
-      if (!companyData) {
-        throw new Error("Story Seed company not found. Please log in to SSS Admin first to initialize company details.");
+        if (companyErr) throw companyErr;
+        companyData = sssCompany;
+        if (!companyData) {
+          throw new Error("Story Seed company not found. Please log in to SSS Admin first to initialize company details.");
+        }
       }
       setCompany(companyData);
 
