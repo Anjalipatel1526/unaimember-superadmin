@@ -1131,7 +1131,7 @@ export default function SSSEmployeeDashboard() {
               <User size={24} />
             </div>
             <h1 className="text-xl font-extrabold text-gray-900 tracking-tight">Employee Detail</h1>
-            <p className="text-xs text-gray-400">Story Seed Studio Profile Directory</p>
+            <p className="text-xs text-gray-400">{(company && company.name) || 'Story Seed Studio'} Profile Directory</p>
           </div>
 
           {employees.length === 0 ? (
@@ -1219,14 +1219,22 @@ export default function SSSEmployeeDashboard() {
         
         {/* Brand header console */}
         <div className="px-6 py-5 border-b border-gray-100 bg-white flex flex-col items-start gap-2.5">
-          <img 
-            src="/logo.png?v=3" 
-            alt="Story Seed Studio" 
-            className="h-12 w-12 rounded-2xl object-cover shadow-sm border border-gray-100"
-          />
+          {company && company.logo_url ? (
+            <img 
+              src={company.logo_url} 
+              alt={(company && company.name) || 'Logo'} 
+              className="h-12 w-12 rounded-2xl object-cover shadow-sm border border-gray-100"
+            />
+          ) : (
+            <img 
+              src="/logo.png?v=3" 
+              alt="Default Logo" 
+              className="h-12 w-12 rounded-2xl object-cover shadow-sm border border-gray-100"
+            />
+          )}
           <div className="flex flex-col">
             <span className="text-xs font-bold text-gray-900 leading-none">Employee</span>
-            <span className="text-[10px] text-gray-400 font-medium mt-1">Story Seed Studio</span>
+            <span className="text-[10px] text-gray-400 font-medium mt-1">{(company && company.name) || 'Story Seed Studio'}</span>
           </div>
         </div>
 
@@ -1353,7 +1361,7 @@ export default function SSSEmployeeDashboard() {
                 <div>
                   <h2 className="text-lg font-extrabold text-gray-900 leading-tight group-hover/banner:text-[#4F6AF7] transition-all">{selectedEmployee.first_name} {selectedEmployee.last_name}</h2>
                   <p className="text-xs text-[#4F6AF7] font-bold mt-1">{selectedEmployee.designation || 'Specialist'}</p>
-                  <p className="text-[10px] text-gray-400 mt-1.5">Story Seed Studio • Joined {selectedEmployee.joining_date ? new Date(selectedEmployee.joining_date).toLocaleDateString() : '—'}</p>
+                  <p className="text-[10px] text-gray-400 mt-1.5">{(company && company.name) || 'Story Seed Studio'} • Joined {selectedEmployee.joining_date ? new Date(selectedEmployee.joining_date).toLocaleDateString() : '—'}</p>
                 </div>
               </div>
               <div className="flex gap-3 flex-wrap justify-center">
