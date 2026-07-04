@@ -29,8 +29,17 @@ function Field({ label, children }) {
   );
 }
 
+function generateRandomPassword() {
+  const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$";
+  let pwd = "";
+  for (let i = 0; i < 8; i++) {
+    pwd += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return pwd;
+}
+
 const BLANK_EMP = {
-  first_name: '', last_name: '', email: '', phone: '',
+  first_name: '', last_name: '', email: '', password: '', phone: '',
   department: '', designation: '', employment_type: 'Full-Time',
   status: 'Active', date_of_joining: '', date_of_birth: '',
   salary: '', address: '',
@@ -106,11 +115,12 @@ export default function CompanyEmployees({ companyId }) {
       first_name: emp.first_name || '',
       last_name: emp.last_name || '',
       email: emp.email || '',
+      password: emp.password || '',
       phone: emp.phone || '',
       department: emp.department || '',
       designation: emp.designation || '',
       employment_type: emp.employment_type || 'Full-Time',
-      status: emp.emp_status || 'Active',
+      status: emp.status || emp.emp_status || 'Active',
       date_of_joining: emp.date_of_joining || '',
       date_of_birth: emp.date_of_birth || '',
       salary: emp.salary || '',
@@ -128,7 +138,7 @@ export default function CompanyEmployees({ companyId }) {
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Staff Directory</h1>
           <p className="text-sm text-gray-500 mt-1">Manage and update records for your organization's team members.</p>
         </div>
-        <button onClick={() => { setForm(BLANK_EMP); setEditId(null); setShowModal(true); }} className="btn-primary flex items-center gap-1.5 self-start">
+        <button onClick={() => { setForm({ ...BLANK_EMP, password: generateRandomPassword() }); setEditId(null); setShowModal(true); }} className="btn-primary flex items-center gap-1.5 self-start">
           <Plus size={15}/>Add Employee
         </button>
       </div>
@@ -152,7 +162,7 @@ export default function CompanyEmployees({ companyId }) {
             <table className="w-full border-collapse">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50/50">
-                  {['Employee', 'Contact', 'Work Info', 'Status', 'Joined Date', ''].map(h => (
+                  {['Employee', 'Contact & Credentials', 'Work Info', 'Status', 'Joined Date', ''].map(h => (
                     <th key={h} className="px-6 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -180,6 +190,12 @@ export default function CompanyEmployees({ companyId }) {
                           <Mail size={12} className="text-gray-400" />
                           <span>{emp.email || '—'}</span>
                         </div>
+                        {emp.password && (
+                          <div className="flex items-center gap-1.5 text-xs text-[#4c58fa] font-mono">
+                            <span className="text-[10px] text-gray-400 font-sans font-bold uppercase">Pass:</span>
+                            <span>{emp.password}</span>
+                          </div>
+                        )}
                         <div className="flex items-center gap-1.5 text-xs text-gray-600">
                           <Phone size={12} className="text-gray-400" />
                           <span>{emp.phone || '—'}</span>
@@ -245,9 +261,12 @@ export default function CompanyEmployees({ companyId }) {
               <input className="input" value={form.last_name} onChange={e => set('last_name', e.target.value)} required />
             </Field>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="Email Address">
-              <input type="email" className="input" value={form.email} onChange={e => set('email', e.target.value)} />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <Field label="Email Address (Login ID)">
+              <input type="email" className="input" value={form.email} onChange={e => set('email', e.target.value)} required placeholder="e.g. employee@company.com" />
+            </Field>
+            <Field label="Login Password">
+              <input className="input" value={form.password} onChange={e => set('password', e.target.value)} required placeholder="Enter login password" />
             </Field>
             <Field label="Phone Number">
               <input className="input" value={form.phone} onChange={e => set('phone', e.target.value)} />
