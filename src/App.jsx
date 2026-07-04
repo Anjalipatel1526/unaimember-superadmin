@@ -79,6 +79,12 @@ export default function App() {
         <Route path="/settings"      element={<Settings />}     />
       </Route>
 
+      <Route path="/SSSEmployee" element={<SSSEmployeeDashboard />} />
+      <Route path="/SSSEmployeeDetail" element={<SSSEmployeeDashboard />} />
+      <Route path="/SSSEmployeeDetails" element={<SSSEmployeeDashboard />} />
+      <Route path="/employee" element={<SSSEmployeeDashboard />} />
+      <Route path="/Employee" element={<SSSEmployeeDashboard />} />
+
       <Route path="/admin" element={<CompanyPortal />} />
       <Route path="/:companySlug" element={<CompanyPortal />} />
       <Route path="/hr" element={<HRPortal />} />
