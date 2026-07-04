@@ -564,7 +564,7 @@ export default function SSSEmployeeDashboard() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [companySlug]);
 
   // Initialize input states when selectedEmployee changes
   useEffect(() => {
@@ -1050,7 +1050,7 @@ export default function SSSEmployeeDashboard() {
 
   // Realtime subscription setup
   useEffect(() => {
-    fetchData();
+    if (!company) return;
 
     const channel = supabase
       .channel('employee-db-sync')
@@ -1059,7 +1059,7 @@ export default function SSSEmployeeDashboard() {
         { event: '*', schema: 'public', table: 'leave_requests' },
         () => {
           const cachedEmpId = localStorage.getItem('sss_employee_session_id');
-          if (cachedEmpId && company) {
+          if (cachedEmpId) {
             fetchEmployeeData(cachedEmpId, company.id);
           }
         }
