@@ -1,11 +1,11 @@
-import { supabase, supabaseAdmin } from './supabase';
+import { supabase, supabaseAdmin, resolveTenantTableName } from './supabase';
 
 // ── Get all employees for a specific company ──────────────────
 export async function getEmployees(companyId) {
+  const tableName = await resolveTenantTableName(companyId, 'employees');
   const { data, error } = await (supabaseAdmin || supabase)
-    .from('employees')
+    .from(tableName)
     .select('*')
-    .eq('company_id', companyId)
     .order('created_at', { ascending: false });
 
   if (error) throw error;
@@ -34,9 +34,10 @@ export async function getEmployees(companyId) {
 }
 
 // ── Get single employee ───────────────────────────────────────
-export async function getEmployee(id) {
+export async function getEmployee(companyId, id) {
+  const tableName = await resolveTenantTableName(companyId, 'employees');
   const { data, error } = await (supabaseAdmin || supabase)
-    .from('employees')
+    .from(tableName)
     .select('*')
     .eq('id', id)
     .single();
@@ -69,6 +70,7 @@ export async function getEmployee(id) {
 
 // ── Create employee under a specific company ──────────────────
 export async function createEmployee(companyId, payload) {
+  const tableName = await resolveTenantTableName(companyId, 'employees');
   const meta = {
     email:           payload.email           || null,
     password:        payload.password        || '123456',
@@ -80,7 +82,7 @@ export async function createEmployee(companyId, payload) {
   };
 
   const { data, error } = await (supabaseAdmin || supabase)
-    .from('employees')
+    .from(tableName)
     .insert([{
       company_id:      companyId,
       first_name:      payload.first_name,
@@ -111,10 +113,11 @@ export async function createEmployee(companyId, payload) {
 }
 
 // ── Update employee ──────────────────────────────────────────
-export async function updateEmployee(id, payload) {
+export async function updateEmployee(companyId, id, payload) {
+  const tableName = await resolveTenantTableName(companyId, 'employees');
   // Fetch current metadata to preserve other properties
   const { data: current, error: fetchErr } = await (supabaseAdmin || supabase)
-    .from('employees')
+    .from(tableName)
     .select('pf_number')
     .eq('id', id)
     .single();
@@ -153,7 +156,7 @@ export async function updateEmployee(id, payload) {
   };
 
   const { data, error } = await (supabaseAdmin || supabase)
-    .from('employees')
+    .from(tableName)
     .update(dbPayload)
     .eq('id', id)
     .select()
@@ -175,32 +178,39 @@ export async function updateEmployee(id, payload) {
 }
 
 // ── Delete employee ──────────────────────────────────────────
-export async function deleteEmployee(id) {
+export async function deleteEmployee(companyId, id) {
+  const empTable = await resolveTenantTableName(companyId, 'employees');
+  const attTable = await resolveTenantTableName(companyId, 'attendance');
+  const leaveTable = await resolveTenantTableName(companyId, 'leave_requests');
+
   // First, delete dependent attendance logs
   const { error: attendanceError } = await (supabaseAdmin || supabase)
-    .from('attendance')
+    .from(attTable)
     .delete()
     .eq('employee_id', id);
   if (attendanceError) throw attendanceError;
 
   // Next, delete dependent leave requests
   const { error: leaveError } = await (supabaseAdmin || supabase)
-    .from('leave_requests')
+    .from(leaveTable)
     .delete()
     .eq('employee_id', id);
   if (leaveError) throw leaveError;
 
   // Finally, delete the employee record
-  const { error } = await (supabaseAdmin || supabase).from('employees').delete().eq('id', id);
+  const { error } = await (supabaseAdmin || supabase)
+    .from(empTable)
+    .delete()
+    .eq('id', id);
   if (error) throw error;
 }
 
 // ── Get employee stats for a company ─────────────────────────
 export async function getEmployeeStats(companyId) {
+  const tableName = await resolveTenantTableName(companyId, 'employees');
   const { data, error } = await (supabaseAdmin || supabase)
-    .from('employees')
-    .select('*')
-    .eq('company_id', companyId);
+    .from(tableName)
+    .select('*');
 
   if (error) throw error;
 

@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Clock, DollarSign, BarChart2, Calendar,
   Bell, CheckSquare, ChevronLeft, ChevronRight, Users, TrendingUp,
   CheckCircle, XCircle, Plus, Search, X, Trash2, UserCheck,
   RefreshCw, Edit, Eye, Copy, AlertTriangle, Star, ClipboardList,
   Upload, FileText, MoreVertical, Filter, Download, Send,
-  AlertCircle, PlayCircle, PauseCircle, RotateCcw
+  AlertCircle, PlayCircle, PauseCircle, RotateCcw, LogOut
 } from 'lucide-react';
-import { supabase as supabaseAnon, supabaseAdmin } from '../services/supabase';
+import { supabase as supabaseAnon, supabaseAdmin, resolveTenantTableName } from '../services/supabase';
+import ManagerEmployees from './ManagerEmployees';
 
 const supabase = supabaseAdmin || supabaseAnon;
 const BRAND  = '#4F6AF7';
@@ -16,6 +18,7 @@ let SSS_CO = '593164de-58d8-4e10-992a-fb0f9382cf42';
 
 const NAV = [
   { name: 'Dashboard',    icon: LayoutDashboard },
+  { name: 'Employees',    icon: Users           },
   { name: 'Attendance',   icon: Clock           },
   { name: 'Salary',       icon: DollarSign      },
   { name: 'Leave',        icon: Calendar        },
@@ -98,6 +101,10 @@ const StarRating = ({ value, onChange }) => (
    MAIN COMPONENT
 ═══════════════════════════════════════════════════ */
 export default function SSSManagerDashboard() {
+  const { companySlug } = useParams();
+  const navigate = useNavigate();
+  const [manager, setManager] = useState(null);
+  const [company, setCompany] = useState(null);
   const [activeTab,     setActiveTab]     = useState('Dashboard');
   const [sidebarOpen,   setSidebarOpen]   = useState(true);
   const [loading,       setLoading]       = useState(true);
@@ -142,28 +149,47 @@ export default function SSSManagerDashboard() {
   const [leaveFilter,  setLeaveFilter]  = useState('all');
   const [saving,       setSaving]       = useState(false);
 
+  // Load session from localStorage + fetch fresh company data
+  useEffect(() => {
+    const saved = localStorage.getItem('unai_manager_session');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        setManager(parsed.employeeDetails);
+        setCompany(parsed.companyDetails);
+        SSS_CO = parsed.companyId;
+      } catch (e) {
+        localStorage.removeItem('unai_manager_session');
+        navigate(`/${companySlug || 'sss'}/login`, { replace: true });
+      }
+    } else {
+      navigate(`/${companySlug || 'sss'}/login`, { replace: true });
+    }
+  }, [companySlug, navigate]);
+
   /* ─────────────── FETCH ALL DATA ─────────────── */
   const fetchAll = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const { data: coData } = await supabase.from('companies').select('id').ilike('name', '%story%seed%').maybeSingle();
-      if (coData) {
-        SSS_CO = coData.id;
-      }
+      const empTable = await resolveTenantTableName(SSS_CO, 'employees');
+      const deptTable = 'departments'; // departments table is shared or keep as is
+      const attTable = await resolveTenantTableName(SSS_CO, 'attendance');
+      const leaveTable = await resolveTenantTableName(SSS_CO, 'leave_requests');
 
       const [empRes, deptRes, attRes, lvRes] = await Promise.all([
-        supabase.from('employees').select('*').eq('company_id', SSS_CO),
-        supabase.from('departments').select('*').eq('company_id', SSS_CO),
-        supabase.from('attendance').select('*').eq('company_id', SSS_CO),
-        supabase.from('leave_requests').select('*').eq('company_id', SSS_CO),
+        supabase.from(empTable).select('*').eq('company_id', SSS_CO),
+        supabase.from(deptTable).select('*').eq('company_id', SSS_CO),
+        supabase.from(attTable).select('*').eq('company_id', SSS_CO),
+        supabase.from(leaveTable).select('*').eq('company_id', SSS_CO),
       ]);
       setEmployees(empRes.data  || []);
       setDepartments(deptRes.data || []);
       setAttendance(attRes.data || []);
       setLeaves(lvRes.data      || []);
 
+      const notifTable = await resolveTenantTableName(SSS_CO, 'notifications');
       const { data: alertData } = await supabase
-        .from('notifications').select('*')
+        .from(notifTable).select('*')
         .eq('company_id', SSS_CO).eq('type', 'manager_alert')
         .order('created_at', { ascending: false });
       setAlerts(alertData || []);
@@ -175,13 +201,14 @@ export default function SSSManagerDashboard() {
 
   const fetchTasks = async () => {
     try {
+      const notifTable = await resolveTenantTableName(SSS_CO, 'notifications');
       const [taskRes, assignRes, fbRes, revRes, progressRes, reportRes] = await Promise.all([
         supabase.from('sss_tasks').select('*').eq('company_id', SSS_CO).order('created_at', { ascending: false }),
         supabase.from('sss_task_assignments').select('*'),
         supabase.from('sss_task_feedback').select('*'),
         supabase.from('sss_task_reviews').select('*'),
         supabase.from('sss_task_progress').select('*').order('created_at', { ascending: false }),
-        supabase.from('notifications').select('*').eq('company_id', SSS_CO).eq('type', 'task_status_report').order('created_at', { ascending: false }),
+        supabase.from(notifTable).select('*').eq('company_id', SSS_CO).eq('type', 'task_status_report').order('created_at', { ascending: false }),
       ]);
 
       if (taskRes.error) console.error('Supabase tasks error:', taskRes.error);
@@ -200,10 +227,15 @@ export default function SSSManagerDashboard() {
     }
   };
 
-  useEffect(() => { fetchAll(); }, [fetchAll]);
+  useEffect(() => {
+    if (company) {
+      fetchAll();
+    }
+  }, [company, fetchAll]);
 
   /* ─────────── REALTIME SUBSCRIPTION ─────────── */
   useEffect(() => {
+    if (!company) return;
     const channel = supabase.channel('manager-task-updates')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'sss_tasks', filter: `company_id=eq.${SSS_CO}` }, () => fetchTasks())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'sss_task_assignments' }, () => fetchTasks())
@@ -211,11 +243,17 @@ export default function SSSManagerDashboard() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'sss_task_reviews' },     () => fetchTasks())
       .subscribe();
     return () => supabase.removeChannel(channel);
-  }, [SSS_CO]);
+  }, [company]);
+
+  const handleLogout = () => {
+    localStorage.removeItem('unai_manager_session');
+    navigate(`/${companySlug || 'sss'}/login`);
+  };
 
   /* ─────────── TASK CRUD ─────────── */
   const sendNotification = async (title, body, userId = null) => {
-    await supabase.from('notifications').insert({
+    const notifTable = await resolveTenantTableName(SSS_CO, 'notifications');
+    await supabase.from(notifTable).insert({
       company_id: SSS_CO, user_id: userId, type: 'task_update',
       title, body, is_read: false,
     }).select();
@@ -402,12 +440,14 @@ export default function SSSManagerDashboard() {
   };
 
   const handleDeleteAlert = async (id) => {
-    await supabase.from('notifications').delete().eq('id', id);
+    const notifTable = await resolveTenantTableName(SSS_CO, 'notifications');
+    await supabase.from(notifTable).delete().eq('id', id);
     setAlerts(prev => prev.filter(a => a.id !== id));
   };
 
   const handleLeaveAction = async (id, status) => {
-    await supabase.from('leave_requests').update({ status }).eq('id', id);
+    const leaveTable = await resolveTenantTableName(SSS_CO, 'leave_requests');
+    await supabase.from(leaveTable).update({ status }).eq('id', id);
     setLeaves(prev => prev.map(l => l.id === id ? { ...l, status } : l));
   };
 
@@ -418,7 +458,8 @@ export default function SSSManagerDashboard() {
       onConfirm: async () => {
         setDeleteConfirm(null);
         try {
-          const { error } = await supabase.from('attendance').delete().eq('id', id);
+          const attTable = await resolveTenantTableName(SSS_CO, 'attendance');
+          const { error } = await supabase.from(attTable).delete().eq('id', id);
           if (error) throw error;
           await fetchAll(true);
         } catch (e) {
@@ -435,7 +476,8 @@ export default function SSSManagerDashboard() {
       onConfirm: async () => {
         setDeleteConfirm(null);
         try {
-          const { error } = await supabase.from('leave_requests').delete().eq('id', id);
+          const leaveTable = await resolveTenantTableName(SSS_CO, 'leave_requests');
+          const { error } = await supabase.from(leaveTable).delete().eq('id', id);
           if (error) throw error;
           await fetchAll(true);
         } catch (e) {
@@ -448,12 +490,13 @@ export default function SSSManagerDashboard() {
   const handleAddAlert = async () => {
     if (!alertInput.trim()) return;
     setSaving(true);
-    await supabase.from('notifications').insert({
+    const notifTable = await resolveTenantTableName(SSS_CO, 'notifications');
+    await supabase.from(notifTable).insert({
       company_id: SSS_CO, user_id: null, type: 'manager_alert',
       title: alertInput.trim(), body: alertType, is_read: false,
     });
     setAlertInput('');
-    const { data } = await supabase.from('notifications').select('*').eq('company_id', SSS_CO).eq('type', 'manager_alert').order('created_at', { ascending: false });
+    const { data } = await supabase.from(notifTable).select('*').eq('company_id', SSS_CO).eq('type', 'manager_alert').order('created_at', { ascending: false });
     setAlerts(data || []);
     setSaving(false);
   };
@@ -883,7 +926,12 @@ export default function SSSManagerDashboard() {
         <div className={`px-3 py-4 border-t border-gray-100 ${sidebarOpen ? '' : 'flex justify-center'}`}>
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs shrink-0" style={{ background: BRAND }}>M</div>
-            {sidebarOpen && <div className="min-w-0"><p className="text-xs font-bold text-gray-800 truncate">Manager</p><p className="text-[9px] text-gray-400 truncate">Story Seed Studio</p></div>}
+            {sidebarOpen && (
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-gray-800 truncate">{manager ? `${manager.first_name} ${manager.last_name}` : 'Manager'}</p>
+                <p className="text-[9px] text-gray-400 truncate">{company ? company.name : 'Story Seed Studio'}</p>
+              </div>
+            )}
           </div>
         </div>
       </aside>
@@ -909,6 +957,9 @@ export default function SSSManagerDashboard() {
             )}
             <button onClick={fetchAll} className="p-2 rounded-xl hover:bg-gray-50 text-gray-400 hover:text-gray-700 transition-colors" title="Refresh">
               <RefreshCw size={15} />
+            </button>
+            <button onClick={handleLogout} className="p-2 rounded-xl hover:bg-red-50 text-gray-400 hover:text-red-650 transition-colors" title="Log Out">
+              <LogOut size={15} />
             </button>
           </div>
         </header>
@@ -976,6 +1027,11 @@ export default function SSSManagerDashboard() {
                     </div>
                   </div>
                 </div>
+              )}
+
+              {/* ─── EMPLOYEES ─── */}
+              {activeTab === 'Employees' && (
+                <ManagerEmployees companyId={SSS_CO} onRefreshData={() => fetchAll(true)} />
               )}
 
               {/* ─── ATTENDANCE ─── */}

@@ -127,7 +127,7 @@ function EmployeesTab({ companyId, companyName }) {
     setSaving(true);
     try {
       if (editEmp) {
-        const updated = await updateEmployee(editEmp.id, form);
+        const updated = await updateEmployee(companyId, editEmp.id, form);
         setEmployees(prev => prev.map(em => em.id === updated.id ? updated : em));
       } else {
         const created = await createEmployee(companyId, form);
@@ -146,7 +146,7 @@ function EmployeesTab({ companyId, companyName }) {
     if (!deleteId) return;
     setDeleting(true);
     try {
-      await deleteEmployee(deleteId);
+      await deleteEmployee(companyId, deleteId);
       setEmployees(prev => prev.filter(e => e.id !== deleteId));
       setStats(s => s ? { ...s, total: Math.max(0, s.total - 1) } : s);
       setDeleteId(null);

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { 
   Building2, Users, CalendarDays, CreditCard, Ticket, Settings, 
   LogOut, Lock, Mail, Eye, EyeOff, ShieldCheck, Menu, X, ArrowUpRight
@@ -19,6 +19,8 @@ const SESSION_KEY = 'unai_company_session';
 export default function CompanyPortal() {
   const { companySlug } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isGlobalAdminLogin = location.pathname.includes('/unaimember/admin');
 
   const [session, setSession] = useState(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
@@ -34,45 +36,106 @@ export default function CompanyPortal() {
   const [activeTab, setActiveTab] = useState('overview');
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  // Load session from localStorage + fetch fresh company data
+  const [companyInfo, setCompanyInfo] = useState(null);
+  const [loadingCompany, setLoadingCompany] = useState(false);
+
+  // Fetch Company details by URL slug if not logged in
+  useEffect(() => {
+    if (!companySlug || isGlobalAdminLogin) {
+      setCompanyInfo(null);
+      return;
+    }
+    const fetchCompany = async () => {
+      try {
+        setLoadingCompany(true);
+        const { data: cos, error: cosErr } = await (supabaseAdmin || supabase)
+          .from('companies')
+          .select('*');
+        if (cosErr) throw cosErr;
+
+        const matched = (cos || []).find(c => {
+          const s = c.name.toLowerCase().replace(/[^a-z0-9\s-]/g, '').trim().replace(/\s+/g, '-');
+          return s === companySlug;
+        });
+
+        if (matched) {
+          setCompanyInfo(matched);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoadingCompany(false);
+      }
+    };
+    fetchCompany();
+  }, [companySlug, isGlobalAdminLogin]);
+
+  // Load session from localStorage + fetch fresh company data & poll status
   useEffect(() => {
     const saved = localStorage.getItem(SESSION_KEY);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        setSession(parsed);
-
-        const slug = (parsed.companyName || 'portal').toLowerCase().replace(/[^a-z0-9\s-]/g, '').trim().replace(/\s+/g, '-');
-        if (companySlug !== slug) {
-          navigate(`/${slug}`, { replace: true });
-        }
-
-        // Fetch fresh company details from Supabase to prevent stale cache
-        (supabaseAdmin || supabase)
-          .from('companies')
-          .select('*')
-          .eq('id', parsed.companyId)
-          .maybeSingle()
-          .then(({ data: fresh, error }) => {
-            if (!error && fresh) {
-              setSession(prev => {
-                if (!prev) return null;
-                const updated = {
-                  ...prev,
-                  companyDetails: fresh,
-                  companyName: fresh.name
-                };
-                localStorage.setItem(SESSION_KEY, JSON.stringify(updated));
-                return updated;
-              });
-            }
-          });
-      } catch (e) {
-        localStorage.removeItem(SESSION_KEY);
+    if (!saved) {
+      if (!isGlobalAdminLogin && !companySlug) {
+        navigate('/unaimember/admin', { replace: true });
       }
+      setCheckingAuth(false);
+      return;
     }
+
+    let parsed;
+    try {
+      parsed = JSON.parse(saved);
+      setSession(parsed);
+
+      const slug = (parsed.companyName || 'portal').toLowerCase().replace(/[^a-z0-9\s-]/g, '').trim().replace(/\s+/g, '-');
+      if (isGlobalAdminLogin) {
+        navigate(`/${slug}`, { replace: true });
+      } else if (companySlug && companySlug !== slug) {
+        navigate(`/${slug}`, { replace: true });
+      }
+    } catch (e) {
+      localStorage.removeItem(SESSION_KEY);
+      setCheckingAuth(false);
+      return;
+    }
+
+    // Function to verify company existence
+    const verifyCompany = () => {
+      (supabaseAdmin || supabase)
+        .from('companies')
+        .select('*')
+        .eq('id', parsed.companyId)
+        .maybeSingle()
+        .then(({ data: fresh, error }) => {
+          if (!error && fresh) {
+            setSession(prev => {
+              if (!prev) return null;
+              const updated = {
+                ...prev,
+                companyDetails: fresh,
+                companyName: fresh.name
+              };
+              localStorage.setItem(SESSION_KEY, JSON.stringify(updated));
+              return updated;
+            });
+          } else if (error || !fresh) {
+            // Company or table was deleted by Super Admin! Clear stale session
+            localStorage.removeItem(SESSION_KEY);
+            setSession(null);
+            navigate(isGlobalAdminLogin ? '/unaimember/admin' : `/${companySlug || 'sss'}`);
+          }
+        });
+    };
+
+    // Verify immediately on mount
+    verifyCompany();
+
+    // Poll every 5 seconds to auto-logout if deleted in real-time
+    const interval = setInterval(verifyCompany, 5000);
+
     setCheckingAuth(false);
-  }, [companySlug, navigate]);
+
+    return () => clearInterval(interval);
+  }, [companySlug, navigate, isGlobalAdminLogin]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -80,9 +143,15 @@ export default function CompanyPortal() {
     setLoading(true);
     try {
       const data = await loginCompany(email, password);
+      const slug = (data.companyName || 'portal').toLowerCase().replace(/[^a-z0-9\s-]/g, '').trim().replace(/\s+/g, '-');
+      
+      // Verify company-specific isolation
+      if (!isGlobalAdminLogin && companySlug && companySlug !== slug) {
+        throw new Error("Invalid email or password under this company.");
+      }
+
       localStorage.setItem(SESSION_KEY, JSON.stringify(data));
       setSession(data);
-      const slug = (data.companyName || 'portal').toLowerCase().replace(/[^a-z0-9\s-]/g, '').trim().replace(/\s+/g, '-');
       navigate(`/${slug}`);
     } catch (err) {
       setError(err.message || 'Incorrect email or password.');
@@ -95,7 +164,7 @@ export default function CompanyPortal() {
     localStorage.removeItem(SESSION_KEY);
     setSession(null);
     setActiveTab('overview');
-    navigate('/admin');
+    navigate(isGlobalAdminLogin ? '/unaimember/admin' : `/${companySlug}`);
   };
 
   const updateCompanyDetails = (newDetails) => {
@@ -133,7 +202,9 @@ export default function CompanyPortal() {
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-[#4c58fa] shadow-lg shadow-white/10">
               <span className="font-extrabold text-xl">U</span>
             </div>
-            <span className="text-lg font-bold tracking-tight">UNAI <span className="text-blue-200">Member</span></span>
+            <span className="text-lg font-bold tracking-tight">
+              {isGlobalAdminLogin ? 'unaimember' : (companySlug || 'company')}<span className="text-blue-200">/admin</span>
+            </span>
           </div>
 
           {/* Centered Pitch */}
@@ -164,7 +235,9 @@ export default function CompanyPortal() {
         <div className="flex-1 flex items-center justify-center p-8 lg:p-16 bg-[#F8FAFC]">
           <div className="w-full max-w-md space-y-8 animate-in fade-in slide-in-from-right duration-500">
             <div>
-              <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight">Welcome Partner</h2>
+              <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight">
+                {isGlobalAdminLogin ? 'Welcome Partner' : `${companyInfo?.name || 'Company'} Admin`}
+              </h2>
               <p className="text-sm text-gray-400 font-medium mt-1.5">Sign in to your client company console.</p>
             </div>
 

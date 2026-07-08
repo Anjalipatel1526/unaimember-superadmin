@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { 
   Clock, Calendar, FileText, CheckCircle, XCircle, LogOut, ArrowRight,
   TrendingUp, Award, User, ChevronRight, Briefcase, Plus, CalendarDays, Activity,
@@ -9,12 +9,13 @@ import {
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
-import { supabase as supabaseAnon, supabaseAdmin } from '../services/supabase';
+import { supabase as supabaseAnon, supabaseAdmin, resolveTenantTableName } from '../services/supabase';
 
 const supabase = supabaseAdmin || supabaseAnon;
 
 export default function SSSEmployeeDashboard() {
   const { companySlug } = useParams();
+  const navigate = useNavigate();
   const [company, setCompany] = useState(null);
   const [employees, setEmployees] = useState([]);
   const [departments, setDepartments] = useState([]);
@@ -23,6 +24,13 @@ export default function SSSEmployeeDashboard() {
   const [leaveRequests, setLeaveRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Authentication redirection guard
+  useEffect(() => {
+    if (!loading && !selectedEmployee) {
+      navigate(`/${companySlug || 'sss'}/login`, { replace: true });
+    }
+  }, [loading, selectedEmployee, companySlug, navigate]);
   
   // Navigation: 'Dashboard' | 'Attendance' | 'Salary' | 'Leave Request' | 'Personal Details'
   const [activeTab, setActiveTab] = useState('Dashboard');
@@ -140,8 +148,9 @@ export default function SSSEmployeeDashboard() {
       setCompany(companyData);
 
       // Fetch Departments
+      const deptsTable = await resolveTenantTableName(companyData.id, 'departments');
       const { data: deptsData, error: deptsErr } = await supabase
-        .from('departments')
+        .from(deptsTable)
         .select('*')
         .eq('company_id', companyData.id);
 
@@ -149,8 +158,9 @@ export default function SSSEmployeeDashboard() {
       setDepartments(deptsData || []);
 
       // Fetch all employees
+      const empTable = await resolveTenantTableName(companyData.id, 'employees');
       const { data: empData, error: empErr } = await supabase
-        .from('employees')
+        .from(empTable)
         .select('*')
         .eq('company_id', companyData.id)
         .order('first_name', { ascending: true });
@@ -177,22 +187,28 @@ export default function SSSEmployeeDashboard() {
 
   const fetchEmployeeData = async (employeeId, companyId) => {
     try {
+      const [attTable, leaveTable, empTable] = await Promise.all([
+        resolveTenantTableName(companyId, 'attendance'),
+        resolveTenantTableName(companyId, 'leave_requests'),
+        resolveTenantTableName(companyId, 'employees')
+      ]);
+
       // Parallelize initial queries
       const [attRes, leaveRes, empRes] = await Promise.all([
         supabase
-          .from('attendance')
+          .from(attTable)
           .select('*')
           .eq('employee_id', employeeId)
           .eq('company_id', companyId)
           .order('date', { ascending: false }),
         supabase
-          .from('leave_requests')
+          .from(leaveTable)
           .select('*')
           .eq('employee_id', employeeId)
           .eq('company_id', companyId)
           .order('created_at', { ascending: false }),
         supabase
-          .from('employees')
+          .from(empTable)
           .select('user_id')
           .eq('id', employeeId)
           .maybeSingle()
@@ -216,8 +232,9 @@ export default function SSSEmployeeDashboard() {
       const userFilter = empUserId ? `user_id.eq.${empUserId},user_id.is.null` : 'user_id.is.null';
 
       // Fetch notifications
+      const notifTable = await resolveTenantTableName(companyId, 'notifications');
       const { data: notifData, error: notifErr } = await supabase
-        .from('notifications')
+        .from(notifTable)
         .select('*')
         .eq('company_id', companyId)
         .or(userFilter)
@@ -282,7 +299,8 @@ export default function SSSEmployeeDashboard() {
   };
 
   const sendRealtimeNotification = async (title, body, userId = null) => {
-    await supabase.from('notifications').insert({
+    const notifTable = await resolveTenantTableName(company?.id, 'notifications');
+    await supabase.from(notifTable).insert({
       company_id: company?.id,
       user_id: userId,
       type: 'task_status_report',
@@ -653,6 +671,7 @@ export default function SSSEmployeeDashboard() {
     setNotifications([]);
     localStorage.removeItem('sss_employee_session_id');
     setActiveTab('Dashboard');
+    navigate(`/${companySlug || 'sss'}/login`);
   };
 
   const handleMarkAllRead = async () => {
@@ -660,8 +679,9 @@ export default function SSSEmployeeDashboard() {
     try {
       const empUserId = selectedEmployee.user_id;
       const userFilter = empUserId ? `user_id.eq.${empUserId},user_id.is.null` : 'user_id.is.null';
+      const notifTable = await resolveTenantTableName(company.id, 'notifications');
       const { error } = await supabase
-        .from('notifications')
+        .from(notifTable)
         .update({ is_read: true })
         .eq('company_id', company.id)
         .or(userFilter);
@@ -674,8 +694,9 @@ export default function SSSEmployeeDashboard() {
 
   const handleMarkIndividualRead = async (id) => {
     try {
+      const notifTable = await resolveTenantTableName(company?.id, 'notifications');
       const { error } = await supabase
-        .from('notifications')
+        .from(notifTable)
         .update({ is_read: true })
         .eq('id', id);
       if (error) throw error;
@@ -687,8 +708,9 @@ export default function SSSEmployeeDashboard() {
 
   const handleArchiveIndividual = async (id, currentArchiveState) => {
     try {
+      const notifTable = await resolveTenantTableName(company?.id, 'notifications');
       const { error } = await supabase
-        .from('notifications')
+        .from(notifTable)
         .update({ is_archived: !currentArchiveState })
         .eq('id', id);
       if (error) throw error;
@@ -700,8 +722,9 @@ export default function SSSEmployeeDashboard() {
 
   const handleDeleteIndividual = async (id) => {
     try {
+      const notifTable = await resolveTenantTableName(company?.id, 'notifications');
       const { error } = await supabase
-        .from('notifications')
+        .from(notifTable)
         .delete()
         .eq('id', id);
       if (error) throw error;
@@ -717,8 +740,9 @@ export default function SSSEmployeeDashboard() {
     setSubmittingFeedback(true);
     try {
       const todayStr = new Date().toISOString().split('T')[0];
+      const reportsTable = await resolveTenantTableName(company.id, 'daily_reports');
       const { error: repErr } = await supabase
-        .from('daily_reports')
+        .from(reportsTable)
         .insert({
           employee_id: selectedEmployee.id,
           company_id: company.id,
@@ -729,8 +753,9 @@ export default function SSSEmployeeDashboard() {
         });
       if (repErr) throw repErr;
 
+      const notifTable = await resolveTenantTableName(company.id, 'notifications');
       const { error: notifErr } = await supabase
-        .from('notifications')
+        .from(notifTable)
         .insert({
           company_id: company.id,
           type: 'announcement',
@@ -844,8 +869,9 @@ export default function SSSEmployeeDashboard() {
         status: 'PENDING'
       };
 
+      const leaveTable = await resolveTenantTableName(company.id, 'leave_requests');
       const { error: err } = await supabase
-        .from('leave_requests')
+        .from(leaveTable)
         .insert([payload]);
 
       if (err) throw err;
@@ -899,8 +925,9 @@ export default function SSSEmployeeDashboard() {
             profile_picture: dataUrl
           };
 
+          const empTable = await resolveTenantTableName(company.id, 'employees');
           const { error: updateErr } = await supabase
-            .from('employees')
+            .from(empTable)
             .update({
               pf_number: JSON.stringify(updatedMeta)
             })
@@ -936,8 +963,9 @@ export default function SSSEmployeeDashboard() {
         profile_picture: profilePicInput
       };
 
+      const empTable = await resolveTenantTableName(company.id, 'employees');
       const { error: updateErr } = await supabase
-        .from('employees')
+        .from(empTable)
         .update({
           phone: phoneInput,
           pf_number: JSON.stringify(updatedMeta)
@@ -987,8 +1015,9 @@ export default function SSSEmployeeDashboard() {
         password: profileFormData.password
       };
 
+      const empTable = await resolveTenantTableName(company.id, 'employees');
       const { error: updateErr } = await supabase
-        .from('employees')
+        .from(empTable)
         .update({
           first_name: profileFormData.first_name,
           last_name: profileFormData.last_name,

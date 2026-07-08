@@ -13,6 +13,7 @@ import HRLeaveManagement from './views/HRLeaveManagement';
 import HRRecruitment from './views/HRRecruitment';
 import HRPerformance from './views/HRPerformance';
 import HRAttendance from './views/HRAttendance';
+import HRManagers from './views/HRManagers';
 
 const SESSION_KEY = 'unai_hr_session';
 
@@ -34,43 +35,68 @@ export default function HRPortal() {
   const [activeTab, setActiveTab] = useState('overview');
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  // Load session from localStorage + fetch fresh company data
+  // Load session from localStorage + fetch fresh company data & poll status
   useEffect(() => {
     const saved = localStorage.getItem(SESSION_KEY);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        setSession(parsed);
-
-        const slug = (parsed.companyName || 'portal').toLowerCase().replace(/[^a-z0-9\s-]/g, '').trim().replace(/\s+/g, '-');
-        if (companySlug !== slug) {
-          navigate(`/${slug}/hr`, { replace: true });
-        }
-
-        (supabaseAdmin || supabase)
-          .from('companies')
-          .select('*')
-          .eq('id', parsed.companyId)
-          .maybeSingle()
-          .then(({ data: fresh, error }) => {
-            if (!error && fresh) {
-              setSession(prev => {
-                if (!prev) return null;
-                const updated = {
-                  ...prev,
-                  companyDetails: fresh,
-                  companyName: fresh.name
-                };
-                localStorage.setItem(SESSION_KEY, JSON.stringify(updated));
-                return updated;
-              });
-            }
-          });
-      } catch (e) {
-        localStorage.removeItem(SESSION_KEY);
-      }
+    if (!saved) {
+      navigate(`/${companySlug || 'sss'}/login`, { replace: true });
+      setCheckingAuth(false);
+      return;
     }
+
+    let parsed;
+    try {
+      parsed = JSON.parse(saved);
+      setSession(parsed);
+
+      const slug = (parsed.companyName || 'portal').toLowerCase().replace(/[^a-z0-9\s-]/g, '').trim().replace(/\s+/g, '-');
+      if (companySlug !== slug) {
+        navigate(`/${slug}/hr`, { replace: true });
+      }
+    } catch (e) {
+      localStorage.removeItem(SESSION_KEY);
+      navigate(`/${companySlug || 'sss'}/login`, { replace: true });
+      setCheckingAuth(false);
+      return;
+    }
+
+    // Function to verify company existence
+    const verifyCompany = () => {
+      (supabaseAdmin || supabase)
+        .from('companies')
+        .select('*')
+        .eq('id', parsed.companyId)
+        .maybeSingle()
+        .then(({ data: fresh, error }) => {
+          if (!error && fresh) {
+            setSession(prev => {
+              if (!prev) return null;
+              const updated = {
+                ...prev,
+                companyDetails: fresh,
+                companyName: fresh.name
+              };
+              localStorage.setItem(SESSION_KEY, JSON.stringify(updated));
+              return updated;
+            });
+          } else if (error || !fresh) {
+            // Company or table was deleted by Super Admin! Clear stale session
+            localStorage.removeItem(SESSION_KEY);
+            setSession(null);
+            navigate(`/${companySlug || 'sss'}/login`, { replace: true });
+          }
+        });
+    };
+
+    // Verify immediately on mount
+    verifyCompany();
+
+    // Poll every 5 seconds to auto-logout if deleted in real-time
+    const interval = setInterval(verifyCompany, 5000);
+
     setCheckingAuth(false);
+
+    return () => clearInterval(interval);
   }, [companySlug, navigate]);
 
   const handleLogin = async (e) => {
@@ -94,7 +120,7 @@ export default function HRPortal() {
     localStorage.removeItem(SESSION_KEY);
     setSession(null);
     setActiveTab('overview');
-    navigate('/hr');
+    navigate(`/${companySlug || 'sss'}/login`);
   };
 
   if (checkingAuth) {
@@ -228,6 +254,7 @@ export default function HRPortal() {
     { id: 'leave', label: 'Leave Manager', icon: ClipboardList },
     { id: 'recruitment', label: 'Recruitment', icon: UserPlus },
     { id: 'performance', label: 'Performance', icon: Award },
+    { id: 'managers', label: 'Managers', icon: Users },
   ];
 
   return (
@@ -335,6 +362,9 @@ export default function HRPortal() {
               )}
               {activeTab === 'performance' && (
                 <HRPerformance companyId={session.companyId} />
+              )}
+              {activeTab === 'managers' && (
+                <HRManagers companyId={session.companyId} />
               )}
             </div>
           </div>

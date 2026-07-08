@@ -40,12 +40,12 @@ function generateRandomPassword() {
 
 const BLANK_EMP = {
   first_name: '', last_name: '', email: '', password: '', phone: '',
-  department: '', designation: 'HR', employment_type: 'Full-Time',
+  department: '', designation: 'Manager', employment_type: 'Full-Time',
   status: 'Active', date_of_joining: '', date_of_birth: '',
   salary: '', address: '',
 };
 
-export default function CompanyEmployees({ companyId }) {
+export default function HRManagers({ companyId }) {
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -67,7 +67,7 @@ export default function CompanyEmployees({ companyId }) {
   useEffect(() => { load(); }, [load]);
 
   const filtered = employees.filter(e =>
-    (e.designation || '').toLowerCase().includes('hr') && (
+    (e.designation || '').toLowerCase().includes('manager') && (
       `${e.first_name} ${e.last_name}`.toLowerCase().includes(search.toLowerCase()) ||
       (e.email || '').toLowerCase().includes(search.toLowerCase()) ||
       (e.department || '').toLowerCase().includes(search.toLowerCase())
@@ -80,7 +80,7 @@ export default function CompanyEmployees({ companyId }) {
     e.preventDefault();
     setSaving(true);
     try {
-      const payload = { ...form, designation: 'HR' };
+      const payload = { ...form, designation: 'Manager' };
       if (editId) {
         const result = await updateEmployee(editId, payload);
         setEmployees(prev => prev.map(emp => emp.id === editId ? result : emp));
@@ -92,7 +92,7 @@ export default function CompanyEmployees({ companyId }) {
       setForm(BLANK_EMP);
       setEditId(null);
     } catch (err) {
-      alert('Error saving HR: ' + err.message);
+      alert('Error saving Manager: ' + err.message);
     } finally {
       setSaving(false);
     }
@@ -106,7 +106,7 @@ export default function CompanyEmployees({ companyId }) {
       setEmployees(prev => prev.filter(e => e.id !== deleteId));
       setDeleteId(null);
     } catch (err) {
-      alert('Error deleting employee: ' + err.message);
+      alert('Error deleting Manager: ' + err.message);
     } finally {
       setDeleting(false);
     }
@@ -120,7 +120,7 @@ export default function CompanyEmployees({ companyId }) {
       password: emp.password || '',
       phone: emp.phone || '',
       department: emp.department || '',
-      designation: emp.designation || '',
+      designation: 'Manager',
       employment_type: emp.employment_type || 'Full-Time',
       status: emp.status || emp.emp_status || 'Active',
       date_of_joining: emp.date_of_joining || '',
@@ -137,11 +137,11 @@ export default function CompanyEmployees({ companyId }) {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">HR Directory</h1>
-          <p className="text-sm text-gray-500 mt-1">Manage and update records for your organization's HR partners.</p>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Managers Directory</h1>
+          <p className="text-sm text-gray-500 mt-1">Manage and update records for your organization's departmental managers.</p>
         </div>
         <button onClick={() => { setForm({ ...BLANK_EMP, password: generateRandomPassword() }); setEditId(null); setShowModal(true); }} className="btn-primary flex items-center gap-1.5 self-start">
-          <Plus size={15}/>Add HR
+          <Plus size={15}/>Add Manager
         </button>
       </div>
 
@@ -150,7 +150,7 @@ export default function CompanyEmployees({ companyId }) {
         <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100 bg-white">
           <div className="relative flex-1 max-w-sm">
             <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"/>
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search employees by name, department, title…" className="input pl-9 h-10"/>
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search managers..." className="input pl-9 h-10"/>
           </div>
         </div>
 
@@ -164,7 +164,7 @@ export default function CompanyEmployees({ companyId }) {
             <table className="w-full border-collapse">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50/50">
-                  {['Employee', 'Contact & Credentials', 'Work Info', 'Status', 'Joined Date', ''].map(h => (
+                  {['Manager', 'Contact & Credentials', 'Work Info', 'Status', 'Joined Date', ''].map(h => (
                     <th key={h} className="px-6 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -180,25 +180,19 @@ export default function CompanyEmployees({ companyId }) {
                         </div>
                         <div>
                           <p className="text-sm font-semibold text-gray-900">{emp.first_name} {emp.last_name}</p>
-                          <p className="text-xs text-gray-400 font-mono">{emp.employee_code || 'No Code'}</p>
+                          <span className="text-xs text-gray-400 font-mono">ID: {emp.id.slice(0, 8)}...</span>
                         </div>
                       </div>
                     </td>
 
-                    {/* Contact details */}
+                    {/* Contact & Credentials */}
                     <td className="px-6 py-4">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-1.5 text-xs text-gray-600">
+                      <div className="space-y-1 text-xs text-gray-500 font-medium">
+                        <div className="flex items-center gap-1.5">
                           <Mail size={12} className="text-gray-400" />
-                          <span>{emp.email || '—'}</span>
+                          <span className="font-mono">{emp.email || '—'}</span>
                         </div>
-                        {emp.password && (
-                          <div className="flex items-center gap-1.5 text-xs text-[#4c58fa] font-mono">
-                            <span className="text-[10px] text-gray-400 font-sans font-bold uppercase">Pass:</span>
-                            <span>{emp.password}</span>
-                          </div>
-                        )}
-                        <div className="flex items-center gap-1.5 text-xs text-gray-600">
+                        <div className="flex items-center gap-1.5">
                           <Phone size={12} className="text-gray-400" />
                           <span>{emp.phone || '—'}</span>
                         </div>
@@ -209,7 +203,7 @@ export default function CompanyEmployees({ companyId }) {
                     <td className="px-6 py-4">
                       <div>
                         <p className="text-xs font-bold text-[#4c58fa] bg-[#EEF0FF] px-2 py-0.5 rounded-md inline-block mb-1">{emp.department || 'General'}</p>
-                        <p className="text-sm font-semibold text-gray-800">{emp.designation || 'Staff Member'}</p>
+                        <p className="text-sm font-semibold text-gray-800">{emp.designation || 'Manager'}</p>
                         <p className="text-[10px] text-gray-400 uppercase tracking-wider mt-0.5">{emp.employment_type}</p>
                       </div>
                     </td>
@@ -230,10 +224,10 @@ export default function CompanyEmployees({ companyId }) {
                     {/* Actions */}
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-1.5 justify-end">
-                        <button onClick={() => handleEditClick(emp)} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-[#4c58fa] hover:bg-[#EEF0FF] transition-all" title="Edit Employee">
+                        <button onClick={() => handleEditClick(emp)} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-[#4c58fa] hover:bg-[#EEF0FF] transition-all" title="Edit Manager">
                           <Edit3 size={14}/>
                         </button>
-                        <button onClick={() => setDeleteId(emp.id)} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-all" title="Delete Employee">
+                        <button onClick={() => setDeleteId(emp.id)} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-all" title="Delete Manager">
                           <Trash2 size={14}/>
                         </button>
                       </div>
@@ -241,7 +235,7 @@ export default function CompanyEmployees({ companyId }) {
                   </tr>
                 ))}
                 {filtered.length === 0 && !loading && (
-                  <tr><td colSpan={6} className="text-center py-16 text-sm text-gray-400">No employees found. Add some to get started!</td></tr>
+                  <tr><td colSpan={6} className="text-center py-16 text-sm text-gray-400">No managers found. Add some to get started!</td></tr>
                 )}
               </tbody>
             </table>
@@ -252,8 +246,8 @@ export default function CompanyEmployees({ companyId }) {
         </div>
       </div>
 
-      {/* Add / Edit HR Modal */}
-      <Modal open={showModal} onClose={() => { setShowModal(false); setForm(BLANK_EMP); setEditId(null); }} title={editId ? 'Edit HR Record' : 'Register New HR'}>
+      {/* Add / Edit Manager Modal */}
+      <Modal open={showModal} onClose={() => { setShowModal(false); setForm(BLANK_EMP); setEditId(null); }} title={editId ? 'Edit Manager Record' : 'Register New Manager'}>
         <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="First Name">
@@ -265,7 +259,7 @@ export default function CompanyEmployees({ companyId }) {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <Field label="Email Address (Login ID)">
-              <input type="email" className="input" value={form.email} onChange={e => set('email', e.target.value)} required placeholder="e.g. employee@company.com" />
+              <input type="email" className="input" value={form.email} onChange={e => set('email', e.target.value)} required placeholder="e.g. manager@company.com" />
             </Field>
             <Field label="Login Password">
               <input className="input" value={form.password} onChange={e => set('password', e.target.value)} required placeholder="Enter login password" />
@@ -279,7 +273,7 @@ export default function CompanyEmployees({ companyId }) {
               <input className="input" value={form.department} onChange={e => set('department', e.target.value)} placeholder="e.g. engineering, HR" />
             </Field>
             <Field label="Designation / Title">
-              <input className="input bg-gray-55 cursor-not-allowed" value="HR" disabled />
+              <input className="input bg-gray-55 cursor-not-allowed" value="Manager" disabled />
             </Field>
             <Field label="Employment Type">
               <select className="input" value={form.employment_type} onChange={e => set('employment_type', e.target.value)}>
@@ -319,7 +313,7 @@ export default function CompanyEmployees({ companyId }) {
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-100">
             <button type="button" onClick={() => { setShowModal(false); setForm(BLANK_EMP); setEditId(null); }} className="btn-secondary">Cancel</button>
             <button type="submit" disabled={saving} className="btn-primary">
-              {saving ? 'Saving...' : editId ? 'Update Record' : 'Register HR'}
+              {saving ? 'Saving...' : editId ? 'Update Record' : 'Register Manager'}
             </button>
           </div>
         </form>
@@ -331,8 +325,8 @@ export default function CompanyEmployees({ companyId }) {
         onClose={() => setDeleteId(null)} 
         onConfirm={handleDelete}
         loading={deleting}
-        title="Remove Employee Record"
-        message="Are you sure you want to delete this employee? All salary histories, attendance logs, and permissions will be permanently purged from the server."
+        title="Remove Manager Record"
+        message="Are you sure you want to delete this manager? All associated files and data will be permanently purged."
         confirmText="Confirm Purge"
         type="danger"
       />

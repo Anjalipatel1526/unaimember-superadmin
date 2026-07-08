@@ -12,7 +12,7 @@ import {
   BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
 } from 'recharts';
-import { supabase as supabaseAnon, supabaseAdmin } from '../services/supabase';
+import { supabase as supabaseAnon, supabaseAdmin, resolveTenantTableName } from '../services/supabase';
 
 const supabase = supabaseAdmin || supabaseAnon;
 
@@ -213,7 +213,7 @@ export default function SSSPortal() {
         const { data: newCompany, error: createError } = await supabase
           .from('companies')
           .insert([{
-            name: 'Story Seed Studio ',
+            name: 'Story Seed Studio',
             email: 'admin@storyseed.com',
             status: 'Active',
             payment_status: 'Paid',
@@ -229,8 +229,9 @@ export default function SSSPortal() {
       setCompany(sssCompany);
 
       // 2. Fetch Departments for the company
+      const deptsTable = await resolveTenantTableName(sssCompany.id, 'departments');
       let { data: deptsData, error: deptsError } = await supabase
-        .from('departments')
+        .from(deptsTable)
         .select('*')
         .eq('company_id', sssCompany.id);
 
@@ -242,7 +243,7 @@ export default function SSSPortal() {
         const defaultDepts = ['Creative', 'Development', 'Marketing', 'HR', 'Editorial'];
         const insertRows = defaultDepts.map(name => ({ company_id: sssCompany.id, name }));
         const { data: seededDepts, error: seedError } = await supabase
-          .from('departments')
+          .from(deptsTable)
           .insert(insertRows)
           .select();
 
@@ -253,8 +254,9 @@ export default function SSSPortal() {
       setDepartments(deptsData || []);
 
       // 3. Fetch Employees for Story Seed
+      const empTable = await resolveTenantTableName(sssCompany.id, 'employees');
       const { data: employeesData, error: employeesError } = await supabase
-        .from('employees')
+        .from(empTable)
         .select('*')
         .eq('company_id', sssCompany.id)
         .order('created_at', { ascending: false });
@@ -263,8 +265,9 @@ export default function SSSPortal() {
       setEmployees(employeesData || []);
 
       // 4. Fetch Attendance Logs
+      const attTable = await resolveTenantTableName(sssCompany.id, 'attendance');
       const { data: attendanceData, error: attendanceError } = await supabase
-        .from('attendance')
+        .from(attTable)
         .select('*')
         .eq('company_id', sssCompany.id)
         .order('date', { ascending: false });
@@ -273,8 +276,9 @@ export default function SSSPortal() {
       setAttendanceLogs(attendanceData || []);
 
       // 5. Fetch Leave Requests
+      const leaveTable = await resolveTenantTableName(sssCompany.id, 'leave_requests');
       const { data: leavesData, error: leavesError } = await supabase
-        .from('leave_requests')
+        .from(leaveTable)
         .select('*')
         .eq('company_id', sssCompany.id)
         .order('created_at', { ascending: false });
@@ -283,8 +287,9 @@ export default function SSSPortal() {
       setLeaveRequests(leavesData || []);
 
       // 6. Fetch Daily Reports
+      const reportsTable = await resolveTenantTableName(sssCompany.id, 'daily_reports');
       const { data: reportsData, error: reportsError } = await supabase
-        .from('daily_reports')
+        .from(reportsTable)
         .select('*')
         .eq('company_id', sssCompany.id)
         .order('submitted_at', { ascending: false });
@@ -293,8 +298,9 @@ export default function SSSPortal() {
       setDailyReports(reportsData || []);
 
       // 7. Fetch Notifications
+      const notifTable = await resolveTenantTableName(sssCompany.id, 'notifications');
       const { data: notifData, error: notifError } = await supabase
-        .from('notifications')
+        .from(notifTable)
         .select('*')
         .eq('company_id', sssCompany.id)
         .order('created_at', { ascending: false });
@@ -582,8 +588,9 @@ export default function SSSPortal() {
     };
 
     try {
+      const empTable = await resolveTenantTableName(company.id, 'employees');
       const { error: insertError } = await supabase
-        .from('employees')
+        .from(empTable)
         .insert([payload]);
 
       if (insertError) throw insertError;
@@ -626,8 +633,9 @@ export default function SSSPortal() {
     };
 
     try {
+      const empTable = await resolveTenantTableName(company.id, 'employees');
       const { error: updateError } = await supabase
-        .from('employees')
+        .from(empTable)
         .update(payload)
         .eq('id', currentEmployee.id);
 
@@ -654,34 +662,41 @@ export default function SSSPortal() {
         const adminClient = supabaseAdmin || supabase;
 
         try {
+          const empTable = await resolveTenantTableName(company.id, 'employees');
+          const attTable = await resolveTenantTableName(company.id, 'attendance');
+          const leaveTable = await resolveTenantTableName(company.id, 'leave_requests');
+
           // Step 0: Fetch user_id before deleting
           const { data: empData } = await adminClient
-            .from('employees').select('user_id').eq('id', id).maybeSingle();
+            .from(empTable).select('user_id').eq('id', id).maybeSingle();
           const linkedUserId = empData?.user_id || null;
           console.log(`[SSS Delete] Cascade deleting: ${name} (${id})`);
 
           // Step 1: attendance
-          const { error: e1 } = await adminClient.from('attendance').delete().eq('employee_id', id);
+          const { error: e1 } = await adminClient.from(attTable).delete().eq('employee_id', id);
           if (e1) throw new Error('attendance: ' + e1.message);
           console.log('[SSS Delete] ✓ attendance');
 
           // Step 2: leave_requests
-          const { error: e2 } = await adminClient.from('leave_requests').delete().eq('employee_id', id);
+          const { error: e2 } = await adminClient.from(leaveTable).delete().eq('employee_id', id);
           if (e2) throw new Error('leave_requests: ' + e2.message);
           console.log('[SSS Delete] ✓ leave_requests');
 
           // Step 3: leave_balances (FK found in schema)
-          const { error: e3 } = await adminClient.from('leave_balances').delete().eq('employee_id', id);
+          const lbTable = await resolveTenantTableName(company.id, 'leave_balances');
+          const { error: e3 } = await adminClient.from(lbTable).delete().eq('employee_id', id);
           if (e3) console.warn('[SSS Delete] leave_balances (non-fatal):', e3.message);
           else console.log('[SSS Delete] ✓ leave_balances');
 
           // Step 4: payroll
-          const { error: e4 } = await adminClient.from('payroll').delete().eq('employee_id', id);
+          const payTable = await resolveTenantTableName(company.id, 'payroll');
+          const { error: e4 } = await adminClient.from(payTable).delete().eq('employee_id', id);
           if (e4) console.warn('[SSS Delete] payroll (non-fatal):', e4.message);
           else console.log('[SSS Delete] ✓ payroll');
 
           // Step 5: documents
-          const { error: e5 } = await adminClient.from('documents').delete().eq('employee_id', id);
+          const docTable = await resolveTenantTableName(company.id, 'documents');
+          const { error: e5 } = await adminClient.from(docTable).delete().eq('employee_id', id);
           if (e5) console.warn('[SSS Delete] documents (non-fatal):', e5.message);
           else console.log('[SSS Delete] ✓ documents');
 
@@ -701,7 +716,7 @@ export default function SSSPortal() {
           else console.log('[SSS Delete] ✓ sss_task_progress');
 
           // Step 6: DELETE the employee row itself
-          const { error: e6 } = await adminClient.from('employees').delete().eq('id', id);
+          const { error: e6 } = await adminClient.from(empTable).delete().eq('id', id);
           if (e6) throw new Error('employees: ' + e6.message);
           console.log('[SSS Delete] ✓ employee row deleted');
 
@@ -743,8 +758,9 @@ export default function SSSPortal() {
         status: attendanceFormData.status
       };
 
+      const attTable = await resolveTenantTableName(company.id, 'attendance');
       const { error: insertError } = await supabase
-        .from('attendance')
+        .from(attTable)
         .insert([payload]);
 
       if (insertError) throw insertError;
@@ -766,8 +782,9 @@ export default function SSSPortal() {
         setError(null);
         const adminClient = supabaseAdmin || supabase;
         try {
+          const attTable = await resolveTenantTableName(company.id, 'attendance');
           const { error } = await adminClient
-            .from('attendance')
+            .from(attTable)
             .delete()
             .eq('id', id);
           if (error) {
@@ -798,8 +815,9 @@ export default function SSSPortal() {
         status: (leaveFormData.status || 'PENDING').toUpperCase()
       };
 
+      const leaveTable = await resolveTenantTableName(company.id, 'leave_requests');
       const { error: insertError } = await supabase
-        .from('leave_requests')
+        .from(leaveTable)
         .insert([payload]);
 
       if (insertError) throw insertError;
@@ -814,8 +832,9 @@ export default function SSSPortal() {
   // Update Leave Request Status (Approve / Reject)
   const handleUpdateLeaveStatus = async (id, status) => {
     try {
+      const leaveTable = await resolveTenantTableName(company.id, 'leave_requests');
       const { error } = await supabase
-        .from('leave_requests')
+        .from(leaveTable)
         .update({ status: status.toUpperCase() })
         .eq('id', id);
 
@@ -836,8 +855,9 @@ export default function SSSPortal() {
         setError(null);
         const adminClient = supabaseAdmin || supabase;
         try {
+          const leaveTable = await resolveTenantTableName(company.id, 'leave_requests');
           const { error } = await adminClient
-            .from('leave_requests')
+            .from(leaveTable)
             .delete()
             .eq('id', id);
           if (error) {
@@ -863,8 +883,9 @@ export default function SSSPortal() {
         setError(null);
         const adminClient = supabaseAdmin || supabase;
         try {
+          const reportsTable = await resolveTenantTableName(sssCompany.id, 'daily_reports');
           const { error } = await adminClient
-            .from('daily_reports')
+            .from(reportsTable)
             .delete()
             .eq('id', id);
           if (error) {

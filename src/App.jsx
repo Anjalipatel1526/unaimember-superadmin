@@ -17,6 +17,7 @@ import HRPortal      from './hr/HRPortal';
 import SSSPortal     from './sss/SSSPortal';
 import SSSEmployeeDashboard from './sss/SSSEmployeeDashboard';
 import SSSManagerDashboard  from './sss/SSSManagerDashboard';
+import EmployeeLogin from './employee/EmployeeLogin';
 
 /* ── Analytics ─────────────────────────────────────────────── */
 function Analytics() {
@@ -79,6 +80,8 @@ export default function App() {
         <Route path="/settings"      element={<Settings />}     />
       </Route>
 
+      <Route path="/unaimember/admin" element={<CompanyPortal />} />
+
       <Route path="/SSSEmployee" element={<SSSEmployeeDashboard />} />
       <Route path="/SSSEmployeeDetail" element={<SSSEmployeeDashboard />} />
       <Route path="/SSSEmployeeDetails" element={<SSSEmployeeDashboard />} />
@@ -87,6 +90,9 @@ export default function App() {
 
       <Route path="/admin" element={<CompanyPortal />} />
       <Route path="/:companySlug" element={<CompanyPortal />} />
+      <Route path="/employee/login" element={<EmployeeLogin />} />
+      <Route path="/login" element={<EmployeeLogin />} />
+      <Route path="/:companySlug/login" element={<EmployeeLogin />} />
       <Route path="/hr" element={<HRPortal />} />
       <Route path="/:companySlug/hr" element={<HRPortal />} />
       <Route path="/sss/admin" element={<SSSPortal />} />
@@ -107,6 +113,7 @@ export default function App() {
       <Route path="/:companySlug/employee" element={<SSSEmployeeDashboard />} />
 
       <Route path="/sss/manager" element={<SSSManagerDashboard />} />
+      <Route path="/:companySlug/manager" element={<SSSManagerDashboard />} />
 
       <Route path="*" element={<div className="p-20 text-center text-gray-500 font-bold">404 - NOT FOUND</div>} />
     </Routes>

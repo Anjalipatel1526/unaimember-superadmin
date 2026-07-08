@@ -24,4 +24,47 @@ export const supabaseAdmin = serviceKey && serviceKey !== 'your-service-role-key
     })
   : null;
 
+// In-memory cache to store company ID to table prefix mappings
+let companyPrefixCache = {};
+
+export async function resolveTenantTableName(companyId, baseTableName) {
+  if (!companyId) return baseTableName;
+
+  const cleanId = companyId.replace(/-/g, '_');
+  
+  if (companyPrefixCache[companyId]) {
+    return `company_${companyPrefixCache[companyId]}_${baseTableName}`;
+  }
+
+  try {
+    const { data, error } = await (supabaseAdmin || supabase)
+      .from('companies')
+      .select('name')
+      .eq('id', companyId)
+      .maybeSingle();
+
+    if (data && data.name) {
+      const cleanName = data.name.toLowerCase()
+        .replace(/[^a-z0-9\s]/g, '')
+        .trim()
+        .replace(/\s+/g, '_');
+      const shortId = cleanId.split('_')[0]; // first segment of UUID
+      const prefix = `${cleanName}_${shortId}`;
+      companyPrefixCache[companyId] = prefix;
+      return `company_${prefix}_${baseTableName}`;
+    }
+  } catch (e) {
+    console.error('Failed to resolve tenant table prefix', e);
+  }
+
+  // Fallback to simple clean UUID prefix if lookup fails
+  return `company_${cleanId}_${baseTableName}`;
+}
+
+export function getTenantTableName(companyId, baseTableName) {
+  if (!companyId) return baseTableName;
+  const cleanId = companyId.replace(/-/g, '_');
+  return `company_${cleanId}_${baseTableName}`;
+}
+
 export default supabase;
